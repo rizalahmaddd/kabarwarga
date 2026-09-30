@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Warga Update API
+  title: Kabar Warga API
   version: 1.0.0
   description: |
-    REST API untuk aplikasi mobile Warga Update: fitur warga (kabar, buku iuran, buku kas, kirim bukti bayar online)
+    REST API untuk aplikasi mobile Kabar Warga: fitur warga (kabar, buku iuran, buku kas, kirim bukti bayar online)
     dan panel pengurus.
 
     ## Autentikasi

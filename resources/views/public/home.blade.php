@@ -1,62 +1,180 @@
 <x-layouts.public>
-    {{-- Header Lingkungan & Pencarian Cepat --}}
-    <section class="mb-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 sm:p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-            <div>
-                <div class="flex items-center gap-2">
+    {{-- Hero Section: Portal Komunitas Warga (Warm Civic Editorial) --}}
+    <section class="mb-8 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-9 shadow-2xs">
+        <div>
+            {{-- Top pill & date --}}
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-daun-dark border border-emerald-200/80 text-xs font-bold">
                     <span class="size-2 rounded-full bg-daun"></span>
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Portal Informasi Lingkungan</span>
+                    <span>Portal Resmi Lingkungan</span>
                 </div>
-                <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
+                <div class="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                    <svg class="size-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+                        <line x1="16" x2="16" y1="2" y2="6"/>
+                        <line x1="8" x2="8" y1="2" y2="6"/>
+                        <line x1="3" x2="21" y1="10" y2="10"/>
+                    </svg>
+                    <span>{{ now()->translatedFormat('l, j F Y') }}</span>
+                </div>
+            </div>
+
+            {{-- Main Headline --}}
+            <div class="mt-5 max-w-3xl">
+                <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
                     {{ setting('site_name') }}
                 </h1>
-                @if (setting('site_tagline'))
-                    <p class="text-xs sm:text-sm text-slate-500 mt-0.5">{{ setting('site_tagline') }}</p>
-                @endif
+                <p class="text-sm sm:text-base text-slate-600 mt-2 leading-relaxed font-normal">
+                    {{ setting('site_tagline') ?: 'Wadah pengumuman lingkungan, transparansi keuangan kas, dan kemudahan pembayaran iuran warga dalam satu pintu digital.' }}
+                </p>
             </div>
 
-            <div class="flex items-center gap-2 self-start sm:self-auto">
-                <a href="{{ route('pay.create') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-daun hover:bg-daun-dark text-xs font-bold text-white transition active:scale-95 no-underline">
-                    <span>Bayar Iuran</span>
-                </a>
-                <a href="{{ route('dues.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition active:scale-95 no-underline">
-                    <svg class="size-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                    <span>Cek Iuran</span>
-                </a>
-                <a href="{{ route('dues.cashbook') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition active:scale-95 no-underline">
-                    <svg class="size-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    <span>Buku Kas</span>
-                </a>
-            </div>
-        </div>
-
-        {{-- Form Pencarian Cepat Nomor Rumah --}}
-        <form action="{{ route('dues.index') }}" method="GET" class="mt-4 flex flex-col sm:flex-row gap-2">
-            <div class="relative flex-1">
-                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            {{-- Form Pencarian Cepat Nomor Rumah --}}
+            <form action="{{ route('dues.index') }}" method="GET" class="mt-6 flex flex-col sm:flex-row gap-2.5 max-w-2xl">
+                <div class="relative flex-1">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" x2="16.65" y1="21" y2="16.65"/>
+                        </svg>
+                    </div>
+                    <input type="search" name="cari" class="w-full h-12 pl-11 pr-4 rounded-xl border border-slate-200 bg-slate-50/80 text-slate-900 placeholder:text-slate-400 text-sm font-medium focus:bg-white focus:outline-none focus:border-daun focus:ring-2 focus:ring-daun/20 transition"
+                           placeholder="Cari nomor rumah (mis. B-1) atau nama kepala keluarga..." autocomplete="off">
+                </div>
+                <button type="submit" class="inline-flex items-center justify-center gap-2 px-5 h-12 rounded-xl bg-daun hover:bg-daun-dark text-white font-bold text-sm shadow-xs transition active:scale-[0.98] shrink-0 cursor-pointer">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" x2="16.65" y1="21" y2="16.65"/>
                     </svg>
-                </div>
-                <input type="search" name="cari" class="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-900 placeholder:text-slate-400 text-sm font-medium focus:bg-white focus:outline-none focus:border-daun focus:ring-2 focus:ring-daun/20 transition"
-                       placeholder="Cari nomor rumah Anda (misal: A-1 atau nama kepala keluarga)..." autocomplete="off">
+                    <span>Cari Status Iuran</span>
+                </button>
+            </form>
+
+            {{-- Quick Action Buttons Strip --}}
+            <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center gap-2.5">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1 hidden sm:inline">Akses Cepat:</span>
+                <a href="{{ route('pay.create') }}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-daun hover:bg-daun-dark text-xs font-bold text-white shadow-xs transition active:scale-95 no-underline">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="20" height="14" x="2" y="5" rx="2"/>
+                        <line x1="2" x2="22" y1="10" y2="10"/>
+                    </svg>
+                    <span>Bayar Iuran Online</span>
+                </a>
+                <a href="{{ route('dues.index') }}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition active:scale-95 no-underline">
+                    <svg class="size-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    <span>Cek Buku Iuran</span>
+                </a>
+                <a href="{{ route('dues.cashbook') }}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition active:scale-95 no-underline">
+                    <svg class="size-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span>Buku Kas Umum</span>
+                </a>
+                <a href="{{ route('posts.index') }}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 transition active:scale-95 no-underline">
+                    <svg class="size-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Z"/>
+                    </svg>
+                    <span>Kabar Warga</span>
+                </a>
             </div>
-            <button type="submit" class="inline-flex items-center justify-center gap-1.5 px-4 h-11 rounded-xl bg-daun hover:bg-daun-dark text-white font-semibold text-xs transition active:scale-[0.98] shrink-0">
-                <span>Cari Status Iuran</span>
-            </button>
-        </form>
+        </div>
     </section>
 
-    {{-- Pengumuman yang Disematkan --}}
+    {{-- Transparency & Community Metrics Strip --}}
+    <section aria-label="Statistik Lingkungan" class="mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        {{-- Card 1: Saldo Kas Bersama --}}
+        <a href="{{ route('dues.cashbook') }}" class="group bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs hover:shadow-md hover:border-emerald-300 transition no-underline flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo Kas RT</span>
+                <div class="size-9 rounded-xl bg-emerald-50 text-daun border border-emerald-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" x2="12" y1="2" y2="22"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-2.5">
+                <p class="text-lg sm:text-xl font-black text-slate-900 tabular-nums leading-tight">{{ rupiah($totalBalance ?? 0) }}</p>
+                <p class="text-xs text-slate-500 mt-1 flex items-center gap-1 group-hover:text-daun transition-colors">
+                    <span>Kas transparan</span>
+                    <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </p>
+            </div>
+        </a>
+
+        {{-- Card 2: Rumah & KK Terdata --}}
+        <a href="{{ route('dues.index') }}" class="group bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs hover:shadow-md hover:border-blue-300 transition no-underline flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Warga Terdata</span>
+                <div class="size-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-2.5">
+                <p class="text-lg sm:text-xl font-black text-slate-900 leading-tight">{{ $totalHouseholds ?? 0 }} Rumah / KK</p>
+                <p class="text-xs text-slate-500 mt-1 flex items-center gap-1 group-hover:text-blue-600 transition-colors">
+                    <span>Lihat daftar iuran</span>
+                    <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </p>
+            </div>
+        </a>
+
+        {{-- Card 3: Agenda Kegiatan --}}
+        <a href="{{ route('posts.index', ['kategori' => 'kegiatan']) }}" class="group bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs hover:shadow-md hover:border-amber-300 transition no-underline flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Agenda Warga</span>
+                <div class="size-9 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+                        <line x1="16" x2="16" y1="2" y2="6"/>
+                        <line x1="8" x2="8" y1="2" y2="6"/>
+                        <line x1="3" x2="21" y1="10" y2="10"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-2.5">
+                <p class="text-lg sm:text-xl font-black text-slate-900 leading-tight">{{ $upcoming->count() }} Kegiatan</p>
+                <p class="text-xs text-slate-500 mt-1 flex items-center gap-1 group-hover:text-amber-700 transition-colors">
+                    <span>{{ $upcoming->count() > 0 ? 'Jadwal mendatang' : 'Belum ada agenda' }}</span>
+                    <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </p>
+            </div>
+        </a>
+
+        {{-- Card 4: Kabar & Pengumuman --}}
+        <a href="{{ route('posts.index') }}" class="group bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs hover:shadow-md hover:border-purple-300 transition no-underline flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Kabar Warga</span>
+                <div class="size-9 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Z"/>
+                        <path d="M18 14h-8"/>
+                        <path d="M15 18h-5"/>
+                        <path d="M10 6h8v4h-8V6Z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-2.5">
+                <p class="text-lg sm:text-xl font-black text-slate-900 leading-tight">{{ $latest->count() + $pinned->count() }} Terbitan</p>
+                <p class="text-xs text-slate-500 mt-1 flex items-center gap-1 group-hover:text-purple-700 transition-colors">
+                    <span>Informasi lingkungan</span>
+                    <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </p>
+            </div>
+        </a>
+    </section>
+
+    {{-- Pengumuman yang Disematkan (Pinned Headline) --}}
     @if ($pinned->isNotEmpty())
         <section aria-labelledby="dipasang" class="mb-8 space-y-4">
             <h2 id="dipasang" class="sr-only">Pengumuman Penting</h2>
             @foreach ($pinned as $post)
-                <article class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 sm:p-6 transition hover:border-slate-300">
-                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2">
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/70">
-                            <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                <article class="bg-white rounded-3xl border border-amber-200/80 shadow-xs p-5 sm:p-6 transition hover:shadow-md relative overflow-hidden">
+                    <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 to-terakota"></div>
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2.5">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                            <svg class="size-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
                             Disematkan
                         </span>
                         <x-stamp :category="$post->category" />
@@ -71,7 +189,7 @@
                     </h3>
 
                     @if ($post->category === 'kegiatan' && $post->event_starts_at)
-                        <div class="mt-2.5 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-900 text-xs font-semibold border border-emerald-100">
+                        <div class="mt-2.5 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 text-xs font-semibold border border-emerald-100">
                             <svg class="size-3.5 text-daun shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="10"/>
                                 <polyline points="12 6 12 12 16 14"/>
@@ -82,8 +200,8 @@
 
                     <p class="mt-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed break-words">{{ $post->excerpt(260) }}</p>
 
-                    <div class="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <a href="{{ route('posts.show', $post) }}" class="inline-flex items-center gap-1 text-xs font-semibold text-daun hover:text-daun-dark transition">
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <a href="{{ route('posts.show', $post) }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-daun hover:text-daun-dark transition">
                             <span>Baca selengkapnya</span>
                             <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                         </a>
@@ -93,17 +211,17 @@
         </section>
     @endif
 
-    {{-- Main Grid Content: Latest News + Sidebar (Progress & Upcoming) --}}
-    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    {{-- Main Grid Content: Latest News + Sidebar --}}
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] items-start">
         {{-- Left: Latest Posts --}}
         <section aria-labelledby="kabar-terbaru">
-            <div class="flex items-center justify-between gap-4 mb-4">
+            <div class="flex items-center justify-between gap-4 mb-4 pb-2 border-b border-slate-200/80">
                 <div class="flex items-center gap-2">
-                    <div class="size-2 rounded-full bg-daun"></div>
-                    <h2 id="kabar-terbaru" class="font-bold text-xl text-slate-900">Kabar Terbaru</h2>
+                    <span class="size-2.5 rounded-full bg-daun"></span>
+                    <h2 id="kabar-terbaru" class="font-bold text-xl text-slate-900 tracking-tight">Kabar Terbaru</h2>
                 </div>
                 <a href="{{ route('posts.index') }}" class="text-xs font-bold text-daun hover:text-daun-dark flex items-center gap-1 no-underline">
-                    Semua kabar
+                    <span>Semua kabar</span>
                     <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
                     </svg>
@@ -114,7 +232,7 @@
                 @forelse ($latest as $post)
                     <x-post-card :post="$post" />
                 @empty
-                    <div class="sheet p-8 text-center">
+                    <div class="sheet p-8 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
                         <div class="size-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                             <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Z"/>
@@ -127,16 +245,18 @@
             </div>
         </section>
 
-        {{-- Right: Sidebar (Dues Progress & Upcoming Events) --}}
+        {{-- Right: Sidebar (Dues Progress, Upcoming Events & Community Contacts) --}}
         <aside class="space-y-6">
             {{-- Dues Progress Card --}}
-            <section aria-labelledby="iuran-bulan-ini" class="sheet p-5">
+            <section aria-labelledby="iuran-bulan-ini" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5">
                 <div class="flex items-center justify-between gap-2 mb-4 pb-2 border-b border-slate-100">
                     <div class="flex items-center gap-2">
-                        <svg class="size-5 text-daun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="20" height="14" x="2" y="5" rx="2"/>
-                            <line x1="2" x2="22" y1="10" y2="10"/>
-                        </svg>
+                        <div class="size-7 rounded-lg bg-emerald-50 text-daun border border-emerald-100 flex items-center justify-center">
+                            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="20" height="14" x="2" y="5" rx="2"/>
+                                <line x1="2" x2="22" y1="10" y2="10"/>
+                            </svg>
+                        </div>
                         <h2 id="iuran-bulan-ini" class="font-bold text-base text-slate-900">Iuran Berjalan</h2>
                     </div>
                     <span class="text-xs text-slate-400 font-medium">Bulan ini</span>
@@ -163,7 +283,7 @@
 
                 <div class="mt-4 pt-3 border-t border-slate-100">
                     <a href="{{ route('dues.index') }}" class="btn btn-sm btn-quiet w-full text-xs font-bold flex items-center justify-center gap-1.5">
-                        Lihat Status Semua Rumah
+                        <span>Lihat Status Semua Rumah</span>
                         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
                         </svg>
@@ -171,21 +291,23 @@
                 </div>
             </section>
 
-            {{-- Upcoming Events --}}
-            <section aria-labelledby="kegiatan-mendatang" class="sheet p-5">
+            {{-- Upcoming Events Card --}}
+            <section aria-labelledby="kegiatan-mendatang" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5">
                 <div class="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-                    <svg class="size-5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-                        <line x1="16" x2="16" y1="2" y2="6"/>
-                        <line x1="8" x2="8" y1="2" y2="6"/>
-                        <line x1="3" x2="21" y1="10" y2="10"/>
-                    </svg>
+                    <div class="size-7 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center">
+                        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+                            <line x1="16" x2="16" y1="2" y2="6"/>
+                            <line x1="8" x2="8" y1="2" y2="6"/>
+                            <line x1="3" x2="21" y1="10" y2="10"/>
+                        </svg>
+                    </div>
                     <h2 id="kegiatan-mendatang" class="font-bold text-base text-slate-900">Kegiatan Mendatang</h2>
                 </div>
 
                 <div class="space-y-3">
                     @forelse ($upcoming as $post)
-                        <a href="{{ route('posts.show', $post) }}" class="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors no-underline text-slate-900 group">
+                        <a href="{{ route('posts.show', $post) }}" class="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors no-underline text-slate-900 group border border-slate-100/70">
                             <x-event-date :at="$post->event_starts_at" />
                             <div class="min-w-0 flex-1">
                                 <p class="font-bold text-sm text-slate-900 group-hover:text-daun transition-colors leading-snug line-clamp-2">{{ $post->title }}</p>
@@ -202,6 +324,35 @@
                         <p class="text-xs text-slate-500 py-2">Belum ada kegiatan yang dijadwalkan.</p>
                     @endforelse
                 </div>
+            </section>
+
+            {{-- Community Info & WhatsApp Help Card (Warm Civic Editorial) --}}
+            <section class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-3">
+                <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-daun-dark">
+                    <svg class="size-4 text-daun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>Layanan Pengurus RT</span>
+                </div>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Butuh bantuan konfirmasi iuran, surat pengantar, atau informasi lingkungan? Hubungi pengurus RT langsung.
+                </p>
+                @if (setting('treasurer_contact'))
+                    @php
+                        $waClean = preg_replace('/[^0-9]/', '', setting('treasurer_contact'));
+                        if (str_starts_with($waClean, '0')) {
+                            $waClean = '62' . substr($waClean, 1);
+                        }
+                    @endphp
+                    <a href="https://wa.me/{{ $waClean }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-daun hover:bg-daun-dark text-white font-bold text-xs shadow-xs transition active:scale-95 no-underline">
+                        <svg class="size-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.062-2.146-.538-1.748-.723-2.883-2.484-2.969-2.6-.088-.117-.714-.95-.714-1.815 0-.866.452-1.293.613-1.469.16-.176.353-.22.47-.22.118 0 .235.001.338.006.108.005.253-.041.396.303.144.344.492 1.198.535 1.285.044.088.073.19.015.308-.058.118-.088.19-.175.293-.088.103-.186.23-.266.308-.088.088-.18.185-.078.361.103.176.457.755.981 1.222.676.602 1.246.788 1.423.876.176.088.279.073.382-.044.103-.117.44-.514.557-.69.118-.176.235-.147.397-.088.161.059 1.028.485 1.205.573.176.088.293.132.338.206.044.073.044.426-.1.831z"/>
+                        </svg>
+                        <span>WhatsApp Pengurus</span>
+                    </a>
+                @endif
             </section>
         </aside>
     </div>
@@ -311,4 +462,3 @@
         </div>
     @endif
 </x-layouts.public>
-

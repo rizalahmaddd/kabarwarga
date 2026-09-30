@@ -466,6 +466,300 @@ function setupPartialApprove() {
     });
 }
 
+// Modern Image Uploaders with Live Preview, Instant Replacement & Drag-and-Drop
+function setupPostFormUploaders() {
+    document.querySelectorAll('[data-image-uploader]').forEach((container) => {
+        const input = container.querySelector('input[type="file"]');
+        const removeInput = container.querySelector('input[type="hidden"][data-remove-input]');
+        const dropzone = container.querySelector('[data-dropzone]');
+        const existingCard = container.querySelector('[data-existing-card]');
+        const previewCard = container.querySelector('[data-preview-card]');
+        const previewImg = container.querySelector('[data-preview-img]');
+        const previewName = container.querySelector('[data-preview-name]');
+        const previewSize = container.querySelector('[data-preview-size]');
+        const changeBtn = container.querySelector('[data-change-btn]');
+        const deleteBtn = container.querySelector('[data-delete-btn]');
+        const deleteNotice = container.querySelector('[data-delete-notice]');
+        const undoDeleteBtn = container.querySelector('[data-undo-delete-btn]');
+        const rechooseBtn = container.querySelector('[data-rechoose-btn]');
+        const cancelNewBtn = container.querySelector('[data-cancel-new-btn]');
+
+        if (!input) return;
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+
+            if (removeInput) removeInput.value = '0';
+            if (previewImg) previewImg.src = URL.createObjectURL(file);
+            if (previewName) previewName.textContent = file.name;
+            if (previewSize) previewSize.textContent = `${formatBytes(file.size)} · Siap diunggah saat disimpan`;
+
+            if (previewCard) previewCard.classList.remove('hidden');
+            if (existingCard) existingCard.classList.add('hidden');
+            if (dropzone) dropzone.classList.add('hidden');
+            if (deleteNotice) deleteNotice.classList.add('hidden');
+        }
+
+        input.addEventListener('change', () => {
+            const file = input.files && input.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        if (changeBtn) {
+            changeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                input.click();
+            });
+        }
+
+        if (rechooseBtn) {
+            rechooseBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                input.click();
+            });
+        }
+
+        if (cancelNewBtn) {
+            cancelNewBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                input.value = '';
+                if (previewCard) previewCard.classList.add('hidden');
+
+                const hasExisting = container.dataset.hasExisting === 'true';
+                const isMarkedDelete = removeInput && removeInput.value === '1';
+
+                if (hasExisting && !isMarkedDelete) {
+                    if (existingCard) existingCard.classList.remove('hidden');
+                    if (dropzone) dropzone.classList.add('hidden');
+                } else if (hasExisting && isMarkedDelete) {
+                    if (deleteNotice) deleteNotice.classList.remove('hidden');
+                    if (dropzone) dropzone.classList.remove('hidden');
+                } else {
+                    if (dropzone) dropzone.classList.remove('hidden');
+                }
+            });
+        }
+
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                input.value = '';
+                if (removeInput) removeInput.value = '1';
+                if (existingCard) existingCard.classList.add('hidden');
+                if (previewCard) previewCard.classList.add('hidden');
+                if (deleteNotice) deleteNotice.classList.remove('hidden');
+                if (dropzone) dropzone.classList.remove('hidden');
+            });
+        }
+
+        if (undoDeleteBtn) {
+            undoDeleteBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (removeInput) removeInput.value = '0';
+                if (deleteNotice) deleteNotice.classList.add('hidden');
+                if (dropzone) dropzone.classList.add('hidden');
+                if (existingCard) existingCard.classList.remove('hidden');
+            });
+        }
+
+        if (dropzone) {
+            ['dragenter', 'dragover'].forEach((eventName) => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('border-daun', 'bg-emerald-50/50');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach((eventName) => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('border-daun', 'bg-emerald-50/50');
+                });
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt && dt.files;
+                if (files && files.length > 0) {
+                    input.files = files;
+                    handleFile(files[0]);
+                }
+            });
+        }
+    });
+
+    // Toggle popup upload section when "is_popup" checkbox changes
+    const isPopupCheckbox = document.getElementById('is_popup_checkbox');
+    const popupUploadSection = document.getElementById('popup-upload-section');
+    if (isPopupCheckbox && popupUploadSection) {
+        const syncPopupSection = () => {
+            if (isPopupCheckbox.checked) {
+                popupUploadSection.classList.remove('hidden');
+            } else {
+                popupUploadSection.classList.add('hidden');
+            }
+        };
+        isPopupCheckbox.addEventListener('change', syncPopupSection);
+        syncPopupSection();
+    }
+}
+
+// Seamless Admin SPA Navigation (keeps sidebar stationary, no full page reload, no scroll reset)
+function setupAdminSpaNavigation() {
+    const sidebar = document.getElementById('admin-desktop-sidebar-nav');
+    if (!sidebar) return;
+
+    let isNavigating = false;
+
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (!link) return;
+
+        if (
+            link.target ||
+            link.hasAttribute('download') ||
+            link.getAttribute('href')?.startsWith('#') ||
+            link.getAttribute('href')?.startsWith('javascript:') ||
+            e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0
+        ) {
+            return;
+        }
+
+        const href = link.href;
+        if (!href) return;
+
+        try {
+            const url = new URL(href, window.location.origin);
+            if (url.origin !== window.location.origin) return;
+            if (!url.pathname.startsWith('/admin')) return;
+            if (link.closest('form')) return;
+
+            if (url.pathname === window.location.pathname && url.search === window.location.search) {
+                e.preventDefault();
+                return;
+            }
+
+            e.preventDefault();
+            loadAdminPage(href, true);
+        } catch (_) {}
+    });
+
+    window.addEventListener('popstate', () => {
+        loadAdminPage(window.location.href, false);
+    });
+
+    async function loadAdminPage(url, push = true) {
+        if (isNavigating) return;
+        isNavigating = true;
+
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                }
+            });
+
+            if (!res.ok) {
+                window.location.href = url;
+                return;
+            }
+
+            const html = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const newMain = doc.getElementById('isi');
+            const currentMain = document.getElementById('isi');
+
+            if (!newMain || !currentMain) {
+                window.location.href = url;
+                return;
+            }
+
+            // 1. Update Document Title
+            document.title = doc.title;
+
+            // 2. Update Desktop Header Title & Breadcrumb
+            const currentDesktopHeader = document.querySelector('header.hidden.lg\\:flex');
+            const newDesktopHeader = doc.querySelector('header.hidden.lg\\:flex');
+            if (currentDesktopHeader && newDesktopHeader) {
+                currentDesktopHeader.innerHTML = newDesktopHeader.innerHTML;
+            }
+
+            // 3. Update Mobile Top Bar
+            const currentMobileHeader = document.querySelector('header.lg\\:hidden');
+            const newMobileHeader = doc.querySelector('header.lg\\:hidden');
+            if (currentMobileHeader && newMobileHeader) {
+                currentMobileHeader.innerHTML = newMobileHeader.innerHTML;
+            }
+
+            // 4. Update Main Content Container
+            currentMain.replaceWith(newMain);
+
+            // 5. Update Active Sidebar Link states from the server-rendered new page
+            const newLinks = doc.querySelectorAll('#admin-desktop-sidebar-nav a');
+            const currentLinks = sidebar.querySelectorAll('a');
+            newLinks.forEach((newA, index) => {
+                const curA = currentLinks[index];
+                if (curA) {
+                    if (newA.hasAttribute('aria-current')) {
+                        curA.setAttribute('aria-current', 'page');
+                    } else {
+                        curA.removeAttribute('aria-current');
+                    }
+                    curA.className = newA.className;
+                    curA.innerHTML = newA.innerHTML;
+                }
+            });
+
+            // 6. Push history state
+            if (push) {
+                history.pushState(null, '', url);
+            }
+
+            // 7. Scroll only the window / main body to top
+            window.scrollTo({ top: 0, behavior: 'instant' });
+
+            // 8. Re-initialize page dynamic features
+            setupPartialApprove();
+            setupProofPreview();
+            setupQuickFilters();
+            setupShowWhen();
+            setupScrollCurrent();
+            setupPaymentCalculator();
+            setupViewSwitcher();
+            setupCustomDropdowns();
+            setupPostFormUploaders();
+
+            // Execute any inline scripts inside the new main container
+            newMain.querySelectorAll('script').forEach((oldScript) => {
+                const newScript = document.createElement('script');
+                Array.from(oldScript.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value));
+                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+        } catch (err) {
+            console.error('Admin SPA navigation error:', err);
+            window.location.href = url;
+        } finally {
+            isNavigating = false;
+        }
+    }
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     setupPartialApprove();
@@ -478,4 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupViewSwitcher();
     setupCustomDropdowns();
     setupAnnouncementPopup();
+    setupPostFormUploaders();
+    setupAdminSpaNavigation();
 });
+

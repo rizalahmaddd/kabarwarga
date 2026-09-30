@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cache;
 class Setting extends Model
 {
     public const DEFAULTS = [
-        'site_name' => 'Warga Update',
+        'site_name' => 'Kabar Warga',
         'site_tagline' => '',
         'address' => '',
         'treasurer_contact' => '',

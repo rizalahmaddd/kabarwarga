@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\Expense;
+use App\Models\Household;
+use App\Models\Payment;
 use App\Models\Post;
 use Illuminate\Support\Collection;
 
@@ -10,7 +13,7 @@ class HomeFeed
     public function __construct(private DuesLedger $ledger) {}
 
     /**
-     * @return array{popupPost: Post|null, pinned: Collection, upcoming: Collection, latest: Collection, progress: Collection}
+     * @return array{popupPost: Post|null, pinned: Collection, upcoming: Collection, latest: Collection, progress: Collection, totalBalance: int, totalHouseholds: int}
      */
     public function build(): array
     {
@@ -34,12 +37,17 @@ class HomeFeed
             ->latest('published_at')
             ->first();
 
+        $totalBalance = (int) (Payment::sum('amount') - Expense::sum('amount'));
+        $totalHouseholds = Household::active()->count();
+
         return [
             'popupPost' => $popupPost,
             'pinned' => $pinned,
             'upcoming' => $upcoming,
             'latest' => $latest,
             'progress' => $this->ledger->currentProgress(),
+            'totalBalance' => $totalBalance,
+            'totalHouseholds' => $totalHouseholds,
         ];
     }
 }

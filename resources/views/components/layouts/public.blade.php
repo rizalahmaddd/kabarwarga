@@ -97,7 +97,7 @@
                         <a href="{{ route('login') }}" class="font-bold text-slate-600 hover:text-daun">Akses Khusus Pengurus</a>
                     @endauth
                     <span class="text-slate-300">·</span>
-                    <span>Warga Update v2.0</span>
+                    <span>Kabar Warga v2.0</span>
                 </div>
             </div>
         </div>
