@@ -3,53 +3,62 @@ info:
   title: Warga Update API
   version: 1.0.0
   description: |
-    REST API for the Warga Update mobile app: public resident features (news, dues ledger, cashbook, online payment
-    proof submission) and the admin panel for committee members (pengurus).
+    REST API untuk aplikasi mobile Warga Update: fitur warga (kabar, buku iuran, buku kas, kirim bukti bayar online)
+    dan panel pengurus.
 
-    ## Authentication
-    Public endpoints need no authentication. Admin endpoints (`/admin/*`, `/auth/me`, `/auth/logout`) require a
-    Sanctum personal access token obtained from `POST /auth/login`, sent as `Authorization: Bearer <token>`.
+    ## Autentikasi
+    Endpoint warga tidak perlu login. Endpoint pengurus (`/admin/*`, `/auth/me`, `/auth/logout`) butuh token Sanctum
+    yang didapat dari `POST /auth/login`, dikirim lewat header `Authorization: Bearer <token>`.
 
-    ## Conventions
-    - Always send `Accept: application/json`.
-    - Money amounts are integers in Rupiah (no decimals).
-    - Monthly periods use the format `YYYY-MM`. One-time dues have no period (`period: null`, `periods: []`).
-    - Boolean form fields accept `true/false`, `1/0` or `"1"/"0"`. In `multipart/form-data` requests use `1` or `0`.
-    - `PUT` requests that upload files (posts, bank accounts) must be sent as `POST` with `multipart/form-data` and an
-      extra field `_method=PUT`, because PHP does not parse multipart bodies on real `PUT` requests.
-    - On update, omitted boolean flags (`is_active`, `is_pinned`, `is_popup`) are treated as `false`, like the web form.
+    ## Aturan umum
+    - Selalu kirim header `Accept: application/json`.
+    - Nominal uang berupa bilangan bulat dalam Rupiah (tanpa desimal).
+    - Periode bulanan memakai format `YYYY-MM`. Iuran sekali bayar tidak punya periode (`period: null`, `periods: []`).
+    - Field boolean menerima `true/false`, `1/0`, atau `"1"/"0"`. Pada `multipart/form-data` pakai `1` atau `0`.
+    - Request `PUT` yang mengunggah file (kabar, rekening) wajib dikirim sebagai `POST` `multipart/form-data` dengan
+      tambahan field `_method=PUT`, karena PHP tidak membaca body multipart pada request `PUT` asli.
+    - Saat update, flag boolean yang tidak dikirim (`is_active`, `is_pinned`, `is_popup`) dianggap `false`, sama seperti form web.
 
-    ## Errors
-    | Status | Meaning |
+    ## Error
+    | Status | Arti |
     |---|---|
-    | 401 | Missing or invalid token |
-    | 404 | Resource not found |
-    | 409 | Business rule conflict, e.g. deleting a household that already has payments. Body: `{ "message": "..." }` |
-    | 422 | Validation failed. Body: `{ "message": "...", "errors": { "field": ["..."] } }` |
-    | 429 | Too many requests (login: 6/min, payment submission: 10/min) |
+    | 401 | Token tidak ada atau tidak valid |
+    | 404 | Data tidak ditemukan |
+    | 409 | Ditolak aturan bisnis, mis. menghapus rumah yang sudah punya catatan iuran. Body: `{ "message": "..." }` |
+    | 422 | Validasi gagal. Body: `{ "message": "...", "errors": { "field": ["..."] } }` |
+    | 429 | Terlalu banyak request (login: 6/menit, kirim bukti bayar: 10/menit) |
 servers:
   - url: /api/v1
-    description: Current host
+    description: Host saat ini
 tags:
-  - name: Auth
-  - name: Public
-    description: Resident-facing endpoints, no login required.
-  - name: Payment Submission
-    description: Residents upload transfer proof; committee reviews it.
-  - name: Admin · Payments
-  - name: Admin · Submissions
-  - name: Admin · Posts
-  - name: Admin · Households
-  - name: Admin · Dues Types
-  - name: Admin · Expenses
-  - name: Admin · Bank Accounts
-  - name: Admin · Settings & Users
+  - name: Autentikasi
+    description: Login pengurus dan token API.
+  - name: Warga
+    description: Endpoint untuk warga, tanpa login.
+  - name: Bukti Bayar
+    description: Warga mengirim bukti transfer, pengurus mengeceknya.
+  - name: Admin · Pembayaran
+    description: Pencatatan iuran tunai/transfer oleh pengurus.
+  - name: Admin · Konfirmasi Bayar
+    description: Pemeriksaan bukti bayar yang dikirim warga.
+  - name: Admin · Kabar
+    description: Pengumuman, berita, kegiatan, dan info iuran.
+  - name: Admin · Rumah
+    description: Data rumah/kepala keluarga.
+  - name: Admin · Jenis Iuran
+    description: Iuran bulanan dan sekali bayar.
+  - name: Admin · Pengeluaran
+    description: Uang keluar dari kas.
+  - name: Admin · Rekening
+    description: Rekening bank dan QRIS tujuan transfer.
+  - name: Admin · Pengaturan & Pengurus
+    description: Pengaturan situs, kata sandi, dan akun pengurus.
 
 paths:
   /auth/login:
     post:
-      tags: [Auth]
-      summary: Log in and get an API token
+      tags: [Autentikasi]
+      summary: Login dan dapatkan token API
       security: []
       requestBody:
         required: true
@@ -61,10 +70,10 @@ paths:
               properties:
                 email: { type: string, format: email, example: bendahara@example.com }
                 password: { type: string, example: rahasia123 }
-                device_name: { type: string, maxLength: 100, description: 'Label for the token, e.g. the phone model., example: Pixel 8' }
+                device_name: { type: string, maxLength: 100, description: 'Label token, mis. nama/model HP.', example: Pixel 8 }
       responses:
         '200':
-          description: Token issued
+          description: Token berhasil dibuat
           content:
             application/json:
               schema:
@@ -77,11 +86,11 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/me:
     get:
-      tags: [Auth]
-      summary: Current user
+      tags: [Autentikasi]
+      summary: Pengurus yang sedang login
       responses:
         '200':
-          description: The logged-in committee member
+          description: Data pengurus
           content:
             application/json:
               schema:
@@ -91,21 +100,21 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
   /auth/logout:
     post:
-      tags: [Auth]
-      summary: Revoke the current token
+      tags: [Autentikasi]
+      summary: Logout (cabut token yang sedang dipakai)
       responses:
         '200': { $ref: '#/components/responses/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /home:
     get:
-      tags: [Public]
-      summary: Home screen feed
-      description: Site settings, popup announcement, pinned posts, upcoming events, latest posts and this month's dues progress.
+      tags: [Warga]
+      summary: Isi halaman beranda
+      description: Pengaturan situs, pengumuman popup, kabar yang disematkan, kegiatan mendatang, kabar terbaru, dan progres iuran bulan ini.
       security: []
       responses:
         '200':
-          description: Home feed
+          description: Data beranda
           content:
             application/json:
               schema:
@@ -129,16 +138,16 @@ paths:
                           properties:
                             dues_type: { $ref: '#/components/schemas/DuesType' }
                             label: { type: string, example: September 2026 }
-                            paid: { type: integer, description: 'Active households that paid this period., example: 18' }
-                            total: { type: integer, description: 'Number of active households., example: 32' }
+                            paid: { type: integer, description: Jumlah rumah aktif yang sudah bayar periode ini., example: 18 }
+                            total: { type: integer, description: Jumlah rumah aktif., example: 32 }
   /settings:
     get:
-      tags: [Public]
-      summary: Site settings
+      tags: [Warga]
+      summary: Pengaturan situs
       security: []
       responses:
         '200':
-          description: Settings
+          description: Pengaturan
           content:
             application/json:
               schema:
@@ -147,9 +156,9 @@ paths:
                   data: { $ref: '#/components/schemas/Settings' }
   /posts:
     get:
-      tags: [Public]
-      summary: Published posts
-      description: Pinned posts first, then newest.
+      tags: [Warga]
+      summary: Daftar kabar yang sudah terbit
+      description: Kabar yang disematkan tampil paling atas, lalu yang terbaru.
       security: []
       parameters:
         - { $ref: '#/components/parameters/PostCategory' }
@@ -157,7 +166,7 @@ paths:
         - { $ref: '#/components/parameters/PerPage' }
       responses:
         '200':
-          description: Paginated posts
+          description: Kabar per halaman
           content:
             application/json:
               schema:
@@ -173,14 +182,14 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /posts/{slug}:
     get:
-      tags: [Public]
-      summary: Post detail
+      tags: [Warga]
+      summary: Detail kabar
       security: []
       parameters:
         - { name: slug, in: path, required: true, schema: { type: string }, example: kerja-bakti-minggu-ini }
       responses:
         '200':
-          description: Post with up to 3 related posts of the same category
+          description: Kabar beserta maksimal 3 kabar terkait dari kategori yang sama
           content:
             application/json:
               schema:
@@ -191,13 +200,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
   /households:
     get:
-      tags: [Public]
-      summary: Active households
-      description: For the house picker in the pay form. Phone and notes are hidden.
+      tags: [Warga]
+      summary: Daftar rumah aktif
+      description: Untuk pilihan rumah di form bayar. Nomor HP dan catatan tidak ditampilkan.
       security: []
       responses:
         '200':
-          description: Households
+          description: Daftar rumah
           content:
             application/json:
               schema:
@@ -206,12 +215,12 @@ paths:
                   data: { type: array, items: { $ref: '#/components/schemas/Household' } }
   /dues-types:
     get:
-      tags: [Public]
-      summary: Active dues types
+      tags: [Warga]
+      summary: Daftar jenis iuran aktif
       security: []
       responses:
         '200':
-          description: Dues types
+          description: Jenis iuran
           content:
             application/json:
               schema:
@@ -220,13 +229,13 @@ paths:
                   data: { type: array, items: { $ref: '#/components/schemas/DuesType' } }
   /bank-accounts:
     get:
-      tags: [Public]
-      summary: Active bank accounts / QRIS for transfers
-      description: If the list is empty, online payment is closed.
+      tags: [Warga]
+      summary: Rekening / QRIS aktif untuk transfer
+      description: Kalau daftarnya kosong, berarti pembayaran online sedang ditutup.
       security: []
       responses:
         '200':
-          description: Bank accounts
+          description: Daftar rekening
           content:
             application/json:
               schema:
@@ -235,19 +244,19 @@ paths:
                   data: { type: array, items: { $ref: '#/components/schemas/BankAccount' } }
   /dues/ledger:
     get:
-      tags: [Public]
-      summary: Dues ledger (who has paid)
+      tags: [Warga]
+      summary: Buku iuran (siapa yang sudah bayar)
       description: |
-        For a monthly dues type, `rows[].months` holds 12 cells for the year.
-        For a one-time dues type, each row carries a single cell's fields directly (`status`, `payment`, ...).
-        Households listed are active ones plus inactive ones that have a payment for this type.
+        Untuk iuran bulanan, `rows[].months` berisi 12 sel untuk tahun tersebut.
+        Untuk iuran sekali bayar, setiap baris langsung memuat field sel (`status`, `payment`, dst).
+        Rumah yang ditampilkan adalah rumah aktif ditambah rumah nonaktif yang punya catatan bayar untuk iuran ini.
       security: []
       parameters:
-        - { name: dues_type_id, in: query, schema: { type: integer }, description: Defaults to the first type. }
-        - { name: year, in: query, schema: { type: integer }, description: Must be one of `years`; defaults to the current year. }
+        - { name: dues_type_id, in: query, schema: { type: integer }, description: Bawaan jenis iuran pertama. }
+        - { name: year, in: query, schema: { type: integer }, description: 'Harus salah satu dari `years`; bawaan tahun ini.' }
       responses:
         '200':
-          description: Ledger
+          description: Buku iuran
           content:
             application/json:
               schema:
@@ -280,14 +289,14 @@ paths:
                                 - type: 'null'
   /dues/cashbook:
     get:
-      tags: [Public]
-      summary: Cashbook (money in and out per month)
+      tags: [Warga]
+      summary: Buku kas (uang masuk dan keluar per bulan)
       security: []
       parameters:
         - { name: year, in: query, schema: { type: integer } }
       responses:
         '200':
-          description: Cashbook
+          description: Buku kas
           content:
             application/json:
               schema:
@@ -298,13 +307,13 @@ paths:
                     properties:
                       years: { type: array, items: { type: integer } }
                       year: { type: integer }
-                      opening: { type: integer, description: Balance carried over from previous years. }
+                      opening: { type: integer, description: Saldo bawaan dari tahun-tahun sebelumnya. }
                       total_in: { type: integer }
                       total_out: { type: integer }
                       closing: { type: integer }
                       rows:
                         type: array
-                        description: Only months that have movement.
+                        description: Hanya bulan yang ada transaksinya.
                         items:
                           type: object
                           properties:
@@ -316,19 +325,19 @@ paths:
                       expenses: { type: array, items: { $ref: '#/components/schemas/Expense' } }
   /households/{household}/dues/{duesType}:
     get:
-      tags: [Public]
-      summary: Payment state of a household for a dues type
+      tags: [Warga]
+      summary: Status bayar satu rumah untuk satu jenis iuran
       description: |
-        Drives the pay form (which months can be ticked) and the admin "record payment" form.
-        Only months with status `unpaid` can be submitted/recorded.
+        Dipakai untuk form bayar warga (bulan mana yang bisa dicentang) dan form catat pembayaran pengurus.
+        Hanya bulan berstatus `unpaid` yang bisa dikirim/dicatat.
       security: []
       parameters:
         - { name: household, in: path, required: true, schema: { type: integer } }
         - { name: duesType, in: path, required: true, schema: { type: integer } }
-        - { name: year, in: query, schema: { type: integer, minimum: 2000 }, description: Monthly types only; defaults to the current year. }
+        - { name: year, in: query, schema: { type: integer, minimum: 2000 }, description: 'Khusus iuran bulanan; bawaan tahun ini.' }
       responses:
         '200':
-          description: Status
+          description: Status bayar
           content:
             application/json:
               schema:
@@ -340,24 +349,24 @@ paths:
                       household: { $ref: '#/components/schemas/Household' }
                       dues_type: { $ref: '#/components/schemas/DuesType' }
                       year: { type: ['integer', 'null'] }
-                      months: { type: array, description: '12 cells for monthly types, empty otherwise.', items: { $ref: '#/components/schemas/DuesCell' } }
+                      months: { type: array, description: '12 sel untuk iuran bulanan, kosong untuk iuran sekali bayar.', items: { $ref: '#/components/schemas/DuesCell' } }
                       once:
-                        description: The single cell for one-time types, null for monthly types.
+                        description: Sel tunggal untuk iuran sekali bayar, null untuk iuran bulanan.
                         oneOf:
                           - $ref: '#/components/schemas/DuesCell'
                           - type: 'null'
-                      recent_submissions: { type: array, description: Last 5 submissions of this household., items: { $ref: '#/components/schemas/PaymentSubmission' } }
+                      recent_submissions: { type: array, description: 5 bukti bayar terakhir dari rumah ini., items: { $ref: '#/components/schemas/PaymentSubmission' } }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
 
   /payment-submissions:
     post:
-      tags: [Payment Submission]
-      summary: Submit transfer proof
+      tags: [Bukti Bayar]
+      summary: Kirim bukti transfer
       description: |
-        Residents send proof of a bank transfer. The committee then approves or rejects it.
-        Months that are already paid or already waiting for review are refused with a 422 on `periods`.
-        For one-time dues omit `periods`.
+        Warga mengirim bukti transfer, lalu pengurus menerima atau menolaknya.
+        Bulan yang sudah lunas atau sedang menunggu konfirmasi akan ditolak dengan 422 pada field `periods`.
+        Untuk iuran sekali bayar, `periods` tidak perlu dikirim.
       security: []
       requestBody:
         required: true
@@ -373,15 +382,15 @@ paths:
                   type: array
                   maxItems: 24
                   items: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
-                  description: Required for monthly dues. Year must be within the last 5 years to next year.
-                bank_account_id: { type: integer, description: The account the resident transferred to. }
-                proof: { type: string, format: binary, description: 'jpg, jpeg, png, webp, heic or pdf; max 5 MB.' }
+                  description: Wajib untuk iuran bulanan. Tahun harus di rentang 5 tahun lalu sampai tahun depan.
+                bank_account_id: { type: integer, description: Rekening tujuan yang ditransfer warga. }
+                proof: { type: string, format: binary, description: 'jpg, jpeg, png, webp, heic, atau pdf; maks 5 MB.' }
                 payer_name: { type: string, maxLength: 100 }
                 phone: { type: string, maxLength: 30 }
                 note: { type: string, maxLength: 255 }
       responses:
         '201':
-          description: Submitted. Keep `data.code` to check the status later.
+          description: Terkirim. Simpan `data.code` untuk mengecek status nanti.
           content:
             application/json:
               schema:
@@ -393,14 +402,14 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /payment-submissions/{code}:
     get:
-      tags: [Payment Submission]
-      summary: Check a submission by its code
+      tags: [Bukti Bayar]
+      summary: Cek bukti bayar lewat kodenya
       security: []
       parameters:
-        - { name: code, in: path, required: true, schema: { type: string }, example: K7M2QX9P, description: Case-insensitive. }
+        - { name: code, in: path, required: true, schema: { type: string }, example: K7M2QX9P, description: Tidak membedakan huruf besar/kecil. }
       responses:
         '200':
-          description: Submission
+          description: Bukti bayar
           content:
             application/json:
               schema:
@@ -411,8 +420,8 @@ paths:
 
   /admin/payments:
     get:
-      tags: [Admin · Payments]
-      summary: Recorded payments
+      tags: [Admin · Pembayaran]
+      summary: Daftar pembayaran tercatat
       parameters:
         - { name: household_id, in: query, schema: { type: integer } }
         - { name: dues_type_id, in: query, schema: { type: integer } }
@@ -420,7 +429,7 @@ paths:
         - { $ref: '#/components/parameters/PerPage' }
       responses:
         '200':
-          description: Paginated payments
+          description: Pembayaran per halaman
           content:
             application/json:
               schema:
@@ -431,12 +440,12 @@ paths:
                       data: { type: array, items: { $ref: '#/components/schemas/Payment' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
-      tags: [Admin · Payments]
-      summary: Record a cash/transfer payment
+      tags: [Admin · Pembayaran]
+      summary: Catat pembayaran tunai/transfer
       description: |
-        `amount` is the total received; it is split evenly across the selected months (any remainder goes to the
-        first months). Months already recorded are skipped and listed in `skipped`.
-        Returns 201 when at least one month was recorded, 200 when everything was skipped.
+        `amount` adalah total uang yang diterima; nilainya dibagi rata ke bulan yang dipilih (sisa pembagian masuk ke
+        bulan-bulan pertama). Bulan yang sudah tercatat dilewati dan dicantumkan di `skipped`.
+        Mengembalikan 201 kalau minimal satu bulan tercatat, 200 kalau semuanya dilewati.
       requestBody:
         required: true
         content:
@@ -447,9 +456,9 @@ paths:
               properties:
                 household_id: { type: integer }
                 dues_type_id: { type: integer }
-                periods: { type: array, items: { type: string, example: '2026-09' }, description: Required for monthly dues. }
+                periods: { type: array, items: { type: string, example: '2026-09' }, description: Wajib untuk iuran bulanan. }
                 amount: { type: integer, minimum: 0, maximum: 100000000 }
-                paid_on: { type: string, format: date, description: Today or earlier. }
+                paid_on: { type: string, format: date, description: Hari ini atau sebelumnya. }
                 method: { type: string, enum: [tunai, transfer] }
                 note: { type: string, maxLength: 255 }
       responses:
@@ -459,8 +468,8 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /admin/payments/{payment}:
     delete:
-      tags: [Admin · Payments]
-      summary: Delete a payment record
+      tags: [Admin · Pembayaran]
+      summary: Hapus catatan pembayaran
       parameters:
         - { name: payment, in: path, required: true, schema: { type: integer } }
       responses:
@@ -470,16 +479,16 @@ paths:
 
   /admin/payment-submissions:
     get:
-      tags: [Admin · Submissions]
-      summary: Submissions by status
-      description: Pending ones are sorted oldest first; reviewed ones newest review first. `counts` gives totals per status for tab badges.
+      tags: [Admin · Konfirmasi Bayar]
+      summary: Daftar bukti bayar per status
+      description: 'Yang menunggu diurutkan dari yang terlama; yang sudah diproses dari yang terakhir diperiksa. `counts` berisi jumlah per status untuk badge tab.'
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/SubmissionStatus' } }
         - { $ref: '#/components/parameters/Page' }
         - { $ref: '#/components/parameters/PerPage' }
       responses:
         '200':
-          description: Paginated submissions
+          description: Bukti bayar per halaman
           content:
             application/json:
               schema:
@@ -497,8 +506,8 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
   /admin/payment-submissions/{submission}:
     get:
-      tags: [Admin · Submissions]
-      summary: Submission detail
+      tags: [Admin · Konfirmasi Bayar]
+      summary: Detail bukti bayar
       parameters: [{ $ref: '#/components/parameters/Submission' }]
       responses:
         '200': { $ref: '#/components/responses/SubmissionResult' }
@@ -506,13 +515,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
   /admin/payment-submissions/{submission}/proof:
     get:
-      tags: [Admin · Submissions]
-      summary: Download the proof file
-      description: Streams the uploaded image or PDF. Needs the bearer token, so load it with an authenticated HTTP client rather than a plain image URL.
+      tags: [Admin · Konfirmasi Bayar]
+      summary: Unduh file bukti
+      description: Mengirim file gambar atau PDF yang diunggah warga. Butuh token, jadi ambil lewat HTTP client yang membawa header Authorization, bukan URL gambar biasa.
       parameters: [{ $ref: '#/components/parameters/Submission' }]
       responses:
         '200':
-          description: File
+          description: File bukti
           content:
             image/*: { schema: { type: string, format: binary } }
             application/pdf: { schema: { type: string, format: binary } }
@@ -520,12 +529,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
   /admin/payment-submissions/{submission}/approve:
     post:
-      tags: [Admin · Submissions]
-      summary: Approve (fully or partially)
+      tags: [Admin · Konfirmasi Bayar]
+      summary: Terima (penuh atau sebagian)
       description: |
-        Records a payment for each accepted month. Send the months you accept in `periods`; if fewer than submitted,
-        `reject_reason` is required and the other months become payable again. One-time dues: omit `periods`.
-        Months already recorded are not double counted (listed in `skipped`). 409 if already processed.
+        Mencatat pembayaran untuk setiap bulan yang diterima. Kirim bulan yang diterima di `periods`; kalau lebih sedikit
+        dari yang diajukan, `reject_reason` wajib diisi dan bulan sisanya kembali bisa dibayar. Iuran sekali bayar: `periods`
+        tidak perlu dikirim. Bulan yang sudah tercatat tidak dicatat dobel (dicantumkan di `skipped`).
+        409 kalau sudah diproses sebelumnya.
       parameters: [{ $ref: '#/components/parameters/Submission' }]
       requestBody:
         required: true
@@ -540,7 +550,7 @@ paths:
                 reject_reason: { type: string, maxLength: 255 }
       responses:
         '200':
-          description: Approved
+          description: Diterima
           content:
             application/json:
               schema:
@@ -555,9 +565,9 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /admin/payment-submissions/{submission}/reject:
     post:
-      tags: [Admin · Submissions]
-      summary: Reject
-      description: The resident can submit again. 409 if already processed.
+      tags: [Admin · Konfirmasi Bayar]
+      summary: Tolak
+      description: Warga bisa mengirim ulang. 409 kalau sudah diproses sebelumnya.
       parameters: [{ $ref: '#/components/parameters/Submission' }]
       requestBody:
         required: true
@@ -575,13 +585,13 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /admin/payment-submissions/{submission}/cancel:
     post:
-      tags: [Admin · Submissions]
-      summary: Undo an approval
-      description: Deletes the payments created by the approval and moves the submission back to pending. Only for approved submissions (409 otherwise).
+      tags: [Admin · Konfirmasi Bayar]
+      summary: Batalkan penerimaan
+      description: Menghapus catatan pembayaran yang dibuat saat diterima dan mengembalikan bukti bayar ke status menunggu. Hanya untuk yang sudah diterima (selain itu 409).
       parameters: [{ $ref: '#/components/parameters/Submission' }]
       responses:
         '200':
-          description: Undone
+          description: Dibatalkan
           content:
             application/json:
               schema:
@@ -594,9 +604,9 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
   /admin/payment-submissions/{submission}/reopen:
     post:
-      tags: [Admin · Submissions]
-      summary: Reopen a rejected submission
-      description: Only for rejected submissions (409 otherwise).
+      tags: [Admin · Konfirmasi Bayar]
+      summary: Buka lagi bukti yang ditolak
+      description: Hanya untuk yang berstatus ditolak (selain itu 409).
       parameters: [{ $ref: '#/components/parameters/Submission' }]
       responses:
         '200': { $ref: '#/components/responses/SubmissionResult' }
@@ -605,16 +615,16 @@ paths:
 
   /admin/posts:
     get:
-      tags: [Admin · Posts]
-      summary: All posts including drafts
-      description: Drafts first, then newest published.
+      tags: [Admin · Kabar]
+      summary: Semua kabar termasuk draf
+      description: Draf tampil paling atas, lalu yang terbaru terbit.
       parameters:
         - { $ref: '#/components/parameters/PostCategory' }
         - { $ref: '#/components/parameters/Page' }
         - { $ref: '#/components/parameters/PerPage' }
       responses:
         '200':
-          description: Paginated posts
+          description: Kabar per halaman
           content:
             application/json:
               schema:
@@ -625,8 +635,8 @@ paths:
                       data: { type: array, items: { $ref: '#/components/schemas/Post' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
-      tags: [Admin · Posts]
-      summary: Create a post
+      tags: [Admin · Kabar]
+      summary: Buat kabar
       requestBody:
         required: true
         content:
@@ -640,18 +650,18 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /admin/posts/{post}:
     parameters:
-      - { name: post, in: path, required: true, schema: { type: integer }, description: Post ID (not slug). }
+      - { name: post, in: path, required: true, schema: { type: integer }, description: ID kabar (bukan slug). }
     get:
-      tags: [Admin · Posts]
-      summary: Post detail
+      tags: [Admin · Kabar]
+      summary: Detail kabar
       responses:
         '200': { $ref: '#/components/responses/PostResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
-      tags: [Admin · Posts]
-      summary: Update a post
-      description: 'With image uploads send `POST` + `_method=PUT` as multipart. The slug is regenerated when the title changes.'
+      tags: [Admin · Kabar]
+      summary: Ubah kabar
+      description: 'Kalau mengunggah gambar, kirim `POST` + `_method=PUT` sebagai multipart. Slug dibuat ulang kalau judul berubah.'
       requestBody:
         required: true
         content:
@@ -665,8 +675,8 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
-      tags: [Admin · Posts]
-      summary: Delete a post and its images
+      tags: [Admin · Kabar]
+      summary: Hapus kabar beserta gambarnya
       responses:
         '200': { $ref: '#/components/responses/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -674,11 +684,11 @@ paths:
 
   /admin/households:
     get:
-      tags: [Admin · Households]
-      summary: All households (with payment count)
+      tags: [Admin · Rumah]
+      summary: Semua rumah (dengan jumlah catatan bayar)
       responses:
         '200':
-          description: Households
+          description: Daftar rumah
           content:
             application/json:
               schema:
@@ -687,8 +697,8 @@ paths:
                   data: { type: array, items: { $ref: '#/components/schemas/Household' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
-      tags: [Admin · Households]
-      summary: Add a household
+      tags: [Admin · Rumah]
+      summary: Tambah rumah
       requestBody: { $ref: '#/components/requestBodies/HouseholdInput' }
       responses:
         '201': { $ref: '#/components/responses/HouseholdResult' }
@@ -698,24 +708,24 @@ paths:
     parameters:
       - { name: household, in: path, required: true, schema: { type: integer } }
     get:
-      tags: [Admin · Households]
-      summary: Household detail
+      tags: [Admin · Rumah]
+      summary: Detail rumah
       responses:
         '200': { $ref: '#/components/responses/HouseholdResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
-      tags: [Admin · Households]
-      summary: Update a household
+      tags: [Admin · Rumah]
+      summary: Ubah data rumah
       requestBody: { $ref: '#/components/requestBodies/HouseholdInput' }
       responses:
         '200': { $ref: '#/components/responses/HouseholdResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
-      tags: [Admin · Households]
-      summary: Delete a household
-      description: 409 if it has payments (deactivate instead) or pending submissions.
+      tags: [Admin · Rumah]
+      summary: Hapus rumah
+      description: 409 kalau sudah punya catatan iuran (nonaktifkan saja) atau masih ada bukti bayar yang menunggu.
       responses:
         '200': { $ref: '#/components/responses/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -723,11 +733,11 @@ paths:
 
   /admin/dues-types:
     get:
-      tags: [Admin · Dues Types]
-      summary: All dues types (with payment count and sum)
+      tags: [Admin · Jenis Iuran]
+      summary: Semua jenis iuran (dengan jumlah dan total pembayaran)
       responses:
         '200':
-          description: Dues types
+          description: Jenis iuran
           content:
             application/json:
               schema:
@@ -736,8 +746,8 @@ paths:
                   data: { type: array, items: { $ref: '#/components/schemas/DuesType' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
-      tags: [Admin · Dues Types]
-      summary: Add a dues type
+      tags: [Admin · Jenis Iuran]
+      summary: Tambah jenis iuran
       requestBody: { $ref: '#/components/requestBodies/DuesTypeInput' }
       responses:
         '201': { $ref: '#/components/responses/DuesTypeResult' }
@@ -747,24 +757,24 @@ paths:
     parameters:
       - { name: duesType, in: path, required: true, schema: { type: integer } }
     get:
-      tags: [Admin · Dues Types]
-      summary: Dues type detail
+      tags: [Admin · Jenis Iuran]
+      summary: Detail jenis iuran
       responses:
         '200': { $ref: '#/components/responses/DuesTypeResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
-      tags: [Admin · Dues Types]
-      summary: Update a dues type
+      tags: [Admin · Jenis Iuran]
+      summary: Ubah jenis iuran
       requestBody: { $ref: '#/components/requestBodies/DuesTypeInput' }
       responses:
         '200': { $ref: '#/components/responses/DuesTypeResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
-      tags: [Admin · Dues Types]
-      summary: Delete a dues type
-      description: 409 if it has payments (deactivate instead) or pending submissions.
+      tags: [Admin · Jenis Iuran]
+      summary: Hapus jenis iuran
+      description: 409 kalau sudah punya catatan pembayaran (nonaktifkan saja) atau masih ada bukti bayar yang menunggu.
       responses:
         '200': { $ref: '#/components/responses/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -772,14 +782,14 @@ paths:
 
   /admin/expenses:
     get:
-      tags: [Admin · Expenses]
-      summary: Expenses
+      tags: [Admin · Pengeluaran]
+      summary: Daftar pengeluaran
       parameters:
         - { $ref: '#/components/parameters/Page' }
         - { $ref: '#/components/parameters/PerPage' }
       responses:
         '200':
-          description: Paginated expenses
+          description: Pengeluaran per halaman
           content:
             application/json:
               schema:
@@ -790,8 +800,8 @@ paths:
                       data: { type: array, items: { $ref: '#/components/schemas/Expense' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
-      tags: [Admin · Expenses]
-      summary: Record an expense
+      tags: [Admin · Pengeluaran]
+      summary: Catat pengeluaran
       requestBody: { $ref: '#/components/requestBodies/ExpenseInput' }
       responses:
         '201': { $ref: '#/components/responses/ExpenseResult' }
@@ -801,23 +811,23 @@ paths:
     parameters:
       - { name: expense, in: path, required: true, schema: { type: integer } }
     get:
-      tags: [Admin · Expenses]
-      summary: Expense detail
+      tags: [Admin · Pengeluaran]
+      summary: Detail pengeluaran
       responses:
         '200': { $ref: '#/components/responses/ExpenseResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
-      tags: [Admin · Expenses]
-      summary: Update an expense
+      tags: [Admin · Pengeluaran]
+      summary: Ubah pengeluaran
       requestBody: { $ref: '#/components/requestBodies/ExpenseInput' }
       responses:
         '200': { $ref: '#/components/responses/ExpenseResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
-      tags: [Admin · Expenses]
-      summary: Delete an expense
+      tags: [Admin · Pengeluaran]
+      summary: Hapus pengeluaran
       responses:
         '200': { $ref: '#/components/responses/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -825,11 +835,11 @@ paths:
 
   /admin/bank-accounts:
     get:
-      tags: [Admin · Bank Accounts]
-      summary: All bank accounts
+      tags: [Admin · Rekening]
+      summary: Semua rekening
       responses:
         '200':
-          description: Bank accounts
+          description: Daftar rekening
           content:
             application/json:
               schema:
@@ -838,8 +848,8 @@ paths:
                   data: { type: array, items: { $ref: '#/components/schemas/BankAccount' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
-      tags: [Admin · Bank Accounts]
-      summary: Add a bank account or QRIS
+      tags: [Admin · Rekening]
+      summary: Tambah rekening atau QRIS
       requestBody: { $ref: '#/components/requestBodies/BankAccountInput' }
       responses:
         '201': { $ref: '#/components/responses/BankAccountResult' }
@@ -849,24 +859,24 @@ paths:
     parameters:
       - { name: bankAccount, in: path, required: true, schema: { type: integer } }
     get:
-      tags: [Admin · Bank Accounts]
-      summary: Bank account detail
+      tags: [Admin · Rekening]
+      summary: Detail rekening
       responses:
         '200': { $ref: '#/components/responses/BankAccountResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
-      tags: [Admin · Bank Accounts]
-      summary: Update a bank account
-      description: 'With a QRIS upload send `POST` + `_method=PUT` as multipart.'
+      tags: [Admin · Rekening]
+      summary: Ubah rekening
+      description: 'Kalau mengunggah QRIS, kirim `POST` + `_method=PUT` sebagai multipart.'
       requestBody: { $ref: '#/components/requestBodies/BankAccountInput' }
       responses:
         '200': { $ref: '#/components/responses/BankAccountResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/ValidationError' }
     delete:
-      tags: [Admin · Bank Accounts]
-      summary: Delete a bank account and its QRIS image
+      tags: [Admin · Rekening]
+      summary: Hapus rekening beserta gambar QRIS-nya
       responses:
         '200': { $ref: '#/components/responses/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -874,11 +884,11 @@ paths:
 
   /admin/settings:
     get:
-      tags: [Admin · Settings & Users]
-      summary: Site settings
+      tags: [Admin · Pengaturan & Pengurus]
+      summary: Pengaturan situs
       responses:
         '200':
-          description: Settings
+          description: Pengaturan
           content:
             application/json:
               schema:
@@ -887,8 +897,8 @@ paths:
                   data: { $ref: '#/components/schemas/Settings' }
         '401': { $ref: '#/components/responses/Unauthorized' }
     put:
-      tags: [Admin · Settings & Users]
-      summary: Update site settings
+      tags: [Admin · Pengaturan & Pengurus]
+      summary: Ubah pengaturan situs
       requestBody:
         required: true
         content:
@@ -904,7 +914,7 @@ paths:
                 payment_info: { type: string, maxLength: 500 }
       responses:
         '200':
-          description: Saved
+          description: Tersimpan
           content:
             application/json:
               schema:
@@ -916,8 +926,8 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /admin/password:
     put:
-      tags: [Admin · Settings & Users]
-      summary: Change own password
+      tags: [Admin · Pengaturan & Pengurus]
+      summary: Ganti kata sandi sendiri
       requestBody:
         required: true
         content:
@@ -935,11 +945,11 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /admin/users:
     get:
-      tags: [Admin · Settings & Users]
-      summary: Committee members
+      tags: [Admin · Pengaturan & Pengurus]
+      summary: Daftar pengurus
       responses:
         '200':
-          description: Users
+          description: Daftar pengurus
           content:
             application/json:
               schema:
@@ -948,8 +958,8 @@ paths:
                   data: { type: array, items: { $ref: '#/components/schemas/User' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
-      tags: [Admin · Settings & Users]
-      summary: Add a committee member
+      tags: [Admin · Pengaturan & Pengurus]
+      summary: Tambah pengurus
       requestBody:
         required: true
         content:
@@ -963,7 +973,7 @@ paths:
                 password: { type: string, minLength: 8 }
       responses:
         '201':
-          description: Created
+          description: Ditambahkan
           content:
             application/json:
               schema:
@@ -975,9 +985,9 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
   /admin/users/{user}:
     delete:
-      tags: [Admin · Settings & Users]
-      summary: Revoke a committee member's access
-      description: Also revokes their API tokens. 409 when deleting your own account.
+      tags: [Admin · Pengaturan & Pengurus]
+      summary: Cabut akses pengurus
+      description: Token API-nya ikut dicabut. 409 kalau mencoba menghapus akun sendiri.
       parameters:
         - { name: user, in: path, required: true, schema: { type: integer } }
       responses:
@@ -994,17 +1004,17 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: Token from `POST /auth/login`.
+      description: Token dari `POST /auth/login`.
 
   parameters:
     Page:
       { name: page, in: query, schema: { type: integer, minimum: 1 } }
     PerPage:
-      { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100 }, description: 'Max 50 on public posts.' }
+      { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100 }, description: 'Maks 50 untuk daftar kabar warga.' }
     PostCategory:
       { name: category, in: query, schema: { $ref: '#/components/schemas/PostCategory' } }
     Submission:
-      { name: submission, in: path, required: true, schema: { type: integer }, description: Submission ID (not code). }
+      { name: submission, in: path, required: true, schema: { type: integer }, description: ID bukti bayar (bukan kode). }
 
   requestBodies:
     HouseholdInput:
@@ -1015,7 +1025,7 @@ components:
             type: object
             required: [number, head_name]
             properties:
-              number: { type: string, maxLength: 30, description: 'Unique house number., example: A-7' }
+              number: { type: string, maxLength: 30, description: Nomor rumah (unik)., example: A-7 }
               head_name: { type: string, maxLength: 100 }
               phone: { type: string, maxLength: 30 }
               note: { type: string, maxLength: 1000 }
@@ -1029,10 +1039,10 @@ components:
             required: [name, amount, frequency]
             properties:
               name: { type: string, maxLength: 100 }
-              amount: { type: integer, minimum: 0, maximum: 100000000, description: Amount per period in Rupiah. }
+              amount: { type: integer, minimum: 0, maximum: 100000000, description: Nominal per periode dalam Rupiah. }
               frequency: { $ref: '#/components/schemas/Frequency' }
-              starts_on: { type: string, pattern: '^\d{4}-\d{2}$', description: 'Monthly only (YYYY-MM). Months before it are not applicable.' }
-              due_on: { type: string, format: date, description: One-time only. }
+              starts_on: { type: string, pattern: '^\d{4}-\d{2}$', description: 'Khusus bulanan (YYYY-MM). Bulan sebelumnya tidak berlaku.' }
+              due_on: { type: string, format: date, description: Khusus sekali bayar. }
               description: { type: string, maxLength: 1000 }
               is_active: { type: boolean }
     ExpenseInput:
@@ -1043,7 +1053,7 @@ components:
             type: object
             required: [spent_on, description, amount]
             properties:
-              spent_on: { type: string, format: date, description: Today or earlier. }
+              spent_on: { type: string, format: date, description: Hari ini atau sebelumnya. }
               description: { type: string, maxLength: 255 }
               amount: { type: integer, minimum: 1, maximum: 100000000 }
     BankAccountInput:
@@ -1053,51 +1063,51 @@ components:
           schema:
             type: object
             required: [bank_name]
-            description: Either `account_number` or a QRIS image is required.
+            description: Wajib isi `account_number` atau unggah gambar QRIS.
             properties:
               bank_name: { type: string, maxLength: 60, example: BCA }
               account_number: { type: string, maxLength: 60 }
               account_name: { type: string, maxLength: 100 }
-              qris: { type: string, format: binary, description: 'Image, max 3 MB.' }
+              qris: { type: string, format: binary, description: 'Gambar, maks 3 MB.' }
               remove_qris: { type: boolean }
-              position: { type: integer, minimum: 0, maximum: 999, description: Sort order. }
+              position: { type: integer, minimum: 0, maximum: 999, description: Urutan tampil. }
               is_active: { type: boolean }
 
   responses:
     Message:
-      description: OK
+      description: Berhasil
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Message' }
     Unauthorized:
-      description: Missing or invalid token
+      description: Token tidak ada atau tidak valid
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Message' }
           example: { message: Unauthenticated. }
     NotFound:
-      description: Not found
+      description: Data tidak ditemukan
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Message' }
     Conflict:
-      description: Business rule prevents the action
+      description: Ditolak karena aturan bisnis
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Message' }
           example: { message: 'Rumah A-7 sudah punya catatan iuran, jadi tidak bisa dihapus. Nonaktifkan saja kalau sudah pindah.' }
     TooManyRequests:
-      description: Rate limited
+      description: Terlalu banyak request
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Message' }
     ValidationError:
-      description: Validation failed
+      description: Validasi gagal
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ValidationError' }
     RecordResult:
-      description: Recording result
+      description: Hasil pencatatan
       content:
         application/json:
           schema:
@@ -1107,7 +1117,7 @@ components:
               created: { type: array, items: { type: string }, example: [Januari 2026, Februari 2026] }
               skipped: { type: array, items: { type: string } }
     SubmissionResult:
-      description: Submission
+      description: Bukti bayar
       content:
         application/json:
           schema:
@@ -1116,7 +1126,7 @@ components:
               data: { $ref: '#/components/schemas/PaymentSubmission' }
               message: { type: string }
     PostResult:
-      description: Post
+      description: Kabar
       content:
         application/json:
           schema:
@@ -1125,7 +1135,7 @@ components:
               data: { $ref: '#/components/schemas/Post' }
               message: { type: string }
     HouseholdResult:
-      description: Household
+      description: Rumah
       content:
         application/json:
           schema:
@@ -1134,7 +1144,7 @@ components:
               data: { $ref: '#/components/schemas/Household' }
               message: { type: string }
     DuesTypeResult:
-      description: Dues type
+      description: Jenis iuran
       content:
         application/json:
           schema:
@@ -1143,7 +1153,7 @@ components:
               data: { $ref: '#/components/schemas/DuesType' }
               message: { type: string }
     ExpenseResult:
-      description: Expense
+      description: Pengeluaran
       content:
         application/json:
           schema:
@@ -1152,7 +1162,7 @@ components:
               data: { $ref: '#/components/schemas/Expense' }
               message: { type: string }
     BankAccountResult:
-      description: Bank account
+      description: Rekening
       content:
         application/json:
           schema:
@@ -1207,22 +1217,21 @@ components:
     Frequency:
       type: string
       enum: [bulanan, sekali]
-      description: '`bulanan` = monthly, `sekali` = one-time.'
+      description: '`bulanan` = tiap bulan, `sekali` = sekali bayar.'
     SubmissionStatus:
       type: string
       enum: [menunggu, diterima, ditolak]
-      description: '`menunggu` = pending, `diterima` = approved, `ditolak` = rejected.'
     DuesStatus:
       type: string
       enum: [paid, pending, unpaid, not_applicable]
-      description: '`not_applicable` = month is before the dues type `starts_on`.'
+      description: '`paid` = lunas, `pending` = menunggu konfirmasi, `unpaid` = belum bayar, `not_applicable` = bulan sebelum iuran mulai berlaku (`starts_on`).'
     User:
       type: object
       properties:
         id: { type: integer }
         name: { type: string }
-        email: { type: string, description: Only for authenticated requests. }
-        created_at: { type: string, format: date-time, description: Only for authenticated requests. }
+        email: { type: string, description: Hanya untuk request yang login. }
+        created_at: { type: string, format: date-time, description: Hanya untuk request yang login. }
     Post:
       type: object
       properties:
@@ -1231,9 +1240,9 @@ components:
         title: { type: string }
         category: { $ref: '#/components/schemas/PostCategory' }
         category_label: { type: string }
-        excerpt: { type: string, description: 'Plain text, max 160 chars.' }
-        body: { type: string, description: Markdown source. }
-        body_html: { type: string, description: 'Rendered, HTML-escaped Markdown.' }
+        excerpt: { type: string, description: 'Teks polos, maks 160 karakter.' }
+        body: { type: string, description: Sumber Markdown. }
+        body_html: { type: string, description: 'Markdown yang sudah dirender ke HTML (HTML mentah di-escape).' }
         image_url: { type: ['string', 'null'] }
         popup_image_url: { type: ['string', 'null'] }
         event_starts_at: { type: ['string', 'null'], format: date-time }
@@ -1252,14 +1261,14 @@ components:
         title: { type: string, maxLength: 160 }
         category: { $ref: '#/components/schemas/PostCategory' }
         body: { type: string, maxLength: 20000, description: Markdown. }
-        action: { type: string, enum: [publish, draft], description: '`draft` unpublishes; `publish` keeps the original publish time if already published.' }
-        event_starts_at: { type: string, format: date-time, description: Required when category is `kegiatan`. }
+        action: { type: string, enum: [publish, draft], description: '`draft` menurunkan dari tampilan warga; `publish` mempertahankan waktu terbit awal kalau sudah pernah terbit.' }
+        event_starts_at: { type: string, format: date-time, description: Wajib kalau kategori `kegiatan`. }
         event_location: { type: string, maxLength: 160 }
         is_pinned: { type: boolean }
         is_popup: { type: boolean }
-        image: { type: string, format: binary, description: 'Image, max 3 MB (multipart only).' }
+        image: { type: string, format: binary, description: 'Gambar, maks 3 MB (hanya multipart).' }
         remove_image: { type: boolean }
-        popup_image: { type: string, format: binary, description: 'Image, max 4 MB (multipart only).' }
+        popup_image: { type: string, format: binary, description: 'Gambar, maks 4 MB (hanya multipart).' }
         remove_popup_image: { type: boolean }
     Household:
       type: object
@@ -1269,9 +1278,9 @@ components:
         head_name: { type: string, example: Pak Budi }
         label: { type: string, example: A-7 · Pak Budi }
         is_active: { type: boolean }
-        phone: { type: ['string', 'null'], description: Admin only. }
-        note: { type: ['string', 'null'], description: Admin only. }
-        payments_count: { type: integer, description: Admin list/detail only. }
+        phone: { type: ['string', 'null'], description: Khusus pengurus. }
+        note: { type: ['string', 'null'], description: Khusus pengurus. }
+        payments_count: { type: integer, description: Khusus daftar/detail pengurus. }
     DuesType:
       type: object
       properties:
@@ -1284,8 +1293,8 @@ components:
         due_on: { type: ['string', 'null'], format: date }
         description: { type: ['string', 'null'] }
         is_active: { type: boolean }
-        payments_count: { type: integer, description: Admin only. }
-        payments_sum_amount: { type: integer, description: Admin only. }
+        payments_count: { type: integer, description: Khusus pengurus. }
+        payments_sum_amount: { type: integer, description: Khusus pengurus. }
     BankAccount:
       type: object
       properties:
@@ -1317,8 +1326,8 @@ components:
         paid_on: { type: string, format: date }
         method: { type: string, enum: [tunai, transfer] }
         method_label: { type: string }
-        note: { type: ['string', 'null'], description: Admin only. }
-        payment_submission_id: { type: ['integer', 'null'], description: Admin only. }
+        note: { type: ['string', 'null'], description: Khusus pengurus. }
+        payment_submission_id: { type: ['integer', 'null'], description: Khusus pengurus. }
         household: { $ref: '#/components/schemas/Household' }
         dues_type: { $ref: '#/components/schemas/DuesType' }
         recorder: { $ref: '#/components/schemas/User' }
@@ -1336,7 +1345,7 @@ components:
     PaymentSubmission:
       type: object
       properties:
-        id: { type: integer, description: Admin only. }
+        id: { type: integer, description: Khusus pengurus. }
         code: { type: string, example: K7M2QX9P }
         status: { $ref: '#/components/schemas/SubmissionStatus' }
         status_label: { type: string }
@@ -1344,17 +1353,17 @@ components:
         periods: { type: array, items: { type: string } }
         periods_label: { type: string, example: 'Jan 2026, Feb 2026' }
         approved_periods: { type: ['array', 'null'], items: { type: string } }
-        declined_periods: { type: array, items: { type: string }, description: Months not accepted in a partial approval. }
+        declined_periods: { type: array, items: { type: string }, description: Bulan yang tidak diterima saat diterima sebagian. }
         is_partial: { type: boolean }
         unit_amount: { type: integer }
         total: { type: integer }
         accepted_total: { type: integer }
         payer_name: { type: ['string', 'null'] }
-        phone: { type: ['string', 'null'], description: Admin only. }
+        phone: { type: ['string', 'null'], description: Khusus pengurus. }
         note: { type: ['string', 'null'] }
         reject_reason: { type: ['string', 'null'] }
         reviewed_at: { type: ['string', 'null'], format: date-time }
-        proof_url: { type: string, description: Admin only. Requires the bearer token. }
+        proof_url: { type: string, description: Khusus pengurus. Butuh token. }
         household: { $ref: '#/components/schemas/Household' }
         dues_type: { $ref: '#/components/schemas/DuesType' }
         bank_account: { $ref: '#/components/schemas/BankAccount' }
