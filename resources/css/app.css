@@ -1,0 +1,181 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: var(--font-source-sans-3), 'Source Sans 3', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: var(--font-bitter), 'Bitter', Georgia, serif;
+
+    --color-paper: #f8fafc;
+    --color-card: #ffffff;
+    --color-rule: #e2e8f0;
+    --color-rule-soft: #f1f5f9;
+    --color-ink: #0f172a;
+    --color-ink-muted: #64748b;
+    --color-ink-subtle: #94a3b8;
+    --color-daun: #16a34a;
+    --color-daun-dark: #15803d;
+    --color-daun-soft: #dcfce7;
+    --color-terakota: #ea580c;
+    --color-terakota-soft: #ffedd5;
+}
+
+@layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    body {
+        @apply bg-paper text-ink font-sans antialiased;
+        font-size: 1rem;
+        line-height: 1.55;
+    }
+
+    h1, h2, h3, h4 {
+        @apply text-ink tracking-tight;
+        line-height: 1.25;
+    }
+
+    a {
+        @apply text-daun underline-offset-2;
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-daun);
+        outline-offset: 2px;
+    }
+}
+
+@layer components {
+    .sheet {
+        @apply bg-card border border-rule rounded-2xl shadow-xs;
+    }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 min-h-12 px-4 rounded-xl font-bold no-underline cursor-pointer select-none transition-all active:scale-[0.98];
+    }
+
+    .btn-sm {
+        @apply min-h-9 px-3 py-1.5 text-sm rounded-lg;
+    }
+
+    .btn-primary {
+        @apply bg-daun text-white shadow-xs hover:bg-daun-dark focus-visible:ring-2 focus-visible:ring-daun/40;
+    }
+
+    .btn-quiet {
+        @apply bg-white text-ink border border-rule hover:bg-slate-50 hover:border-slate-300;
+    }
+
+    .btn-danger {
+        @apply bg-white text-terakota border border-terakota/40 hover:bg-terakota-soft/60;
+    }
+
+    .btn-accent {
+        @apply bg-terakota text-white hover:bg-amber-700 shadow-xs;
+    }
+
+    .btn:disabled {
+        @apply opacity-60 cursor-not-allowed pointer-events-none;
+    }
+
+    .field-label {
+        @apply block font-semibold text-sm text-ink mb-1.5;
+    }
+
+    .field-hint {
+        @apply block text-xs text-ink-muted mt-1;
+    }
+
+    .field-error {
+        @apply block text-xs text-terakota font-semibold mt-1;
+    }
+
+    .input {
+        @apply block w-full min-h-12 px-3.5 py-2.5 bg-white border border-rule rounded-xl text-ink text-sm sm:text-base transition-colors focus:border-daun focus:ring-1 focus:ring-daun;
+    }
+
+    select, select.input {
+        @apply appearance-none bg-white pr-10 cursor-pointer;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.75rem center;
+        background-repeat: no-repeat;
+        background-size: 1.25rem 1.25rem;
+    }
+
+    .input:focus-visible {
+        outline-offset: 0;
+    }
+
+    .input[aria-invalid='true'] {
+        @apply border-terakota focus:border-terakota focus:ring-terakota/30;
+    }
+
+    .stamp {
+        @apply inline-flex items-center font-bold uppercase text-[11px] leading-none px-2 py-1 border rounded-md tracking-wider;
+    }
+
+    .pin {
+        @apply absolute -top-2 left-6 size-4 rounded-full bg-terakota shadow-xs;
+    }
+
+    .badge {
+        @apply inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full;
+    }
+
+    .badge-success {
+        @apply bg-daun-soft text-daun-dark;
+    }
+
+    .badge-warning {
+        @apply bg-amber-50 text-amber-800 border border-amber-200/60;
+    }
+
+    .badge-danger {
+        @apply bg-terakota-soft text-terakota;
+    }
+
+    .badge-neutral {
+        @apply bg-slate-100 text-slate-700;
+    }
+
+    .prose-warga > * + * {
+        margin-top: 1.15em;
+    }
+
+    .prose-warga h2, .prose-warga h3 {
+        @apply font-bold text-xl mt-8 tracking-tight;
+    }
+
+    .prose-warga ul {
+        @apply list-disc pl-6 space-y-1.5;
+    }
+
+    .prose-warga ol {
+        @apply list-decimal pl-6 space-y-1.5;
+    }
+
+    .prose-warga a {
+        @apply text-daun underline underline-offset-4 font-semibold;
+    }
+
+    .prose-warga blockquote {
+        @apply border-l-4 border-daun/40 pl-4 py-1 text-ink-muted italic bg-slate-50 rounded-r-lg;
+    }
+}
+
+@layer utilities {
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .pb-safe {
+        padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    }
+}

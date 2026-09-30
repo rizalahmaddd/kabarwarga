@@ -1,0 +1,1362 @@
+openapi: 3.1.0
+info:
+  title: Warga Update API
+  version: 1.0.0
+  description: |
+    REST API for the Warga Update mobile app: public resident features (news, dues ledger, cashbook, online payment
+    proof submission) and the admin panel for committee members (pengurus).
+
+    ## Authentication
+    Public endpoints need no authentication. Admin endpoints (`/admin/*`, `/auth/me`, `/auth/logout`) require a
+    Sanctum personal access token obtained from `POST /auth/login`, sent as `Authorization: Bearer <token>`.
+
+    ## Conventions
+    - Always send `Accept: application/json`.
+    - Money amounts are integers in Rupiah (no decimals).
+    - Monthly periods use the format `YYYY-MM`. One-time dues have no period (`period: null`, `periods: []`).
+    - Boolean form fields accept `true/false`, `1/0` or `"1"/"0"`. In `multipart/form-data` requests use `1` or `0`.
+    - `PUT` requests that upload files (posts, bank accounts) must be sent as `POST` with `multipart/form-data` and an
+      extra field `_method=PUT`, because PHP does not parse multipart bodies on real `PUT` requests.
+    - On update, omitted boolean flags (`is_active`, `is_pinned`, `is_popup`) are treated as `false`, like the web form.
+
+    ## Errors
+    | Status | Meaning |
+    |---|---|
+    | 401 | Missing or invalid token |
+    | 404 | Resource not found |
+    | 409 | Business rule conflict, e.g. deleting a household that already has payments. Body: `{ "message": "..." }` |
+    | 422 | Validation failed. Body: `{ "message": "...", "errors": { "field": ["..."] } }` |
+    | 429 | Too many requests (login: 6/min, payment submission: 10/min) |
+servers:
+  - url: /api/v1
+    description: Current host
+tags:
+  - name: Auth
+  - name: Public
+    description: Resident-facing endpoints, no login required.
+  - name: Payment Submission
+    description: Residents upload transfer proof; committee reviews it.
+  - name: Admin · Payments
+  - name: Admin · Submissions
+  - name: Admin · Posts
+  - name: Admin · Households
+  - name: Admin · Dues Types
+  - name: Admin · Expenses
+  - name: Admin · Bank Accounts
+  - name: Admin · Settings & Users
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and get an API token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, device_name]
+              properties:
+                email: { type: string, format: email, example: bendahara@example.com }
+                password: { type: string, example: rahasia123 }
+                device_name: { type: string, maxLength: 100, description: 'Label for the token, e.g. the phone model., example: Pixel 8' }
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, example: 1|q2w3e4r5t6y7u8i9o0 }
+                  token_type: { type: string, example: Bearer }
+                  user: { $ref: '#/components/schemas/User' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      responses:
+        '200':
+          description: The logged-in committee member
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current token
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /home:
+    get:
+      tags: [Public]
+      summary: Home screen feed
+      description: Site settings, popup announcement, pinned posts, upcoming events, latest posts and this month's dues progress.
+      security: []
+      responses:
+        '200':
+          description: Home feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      settings: { $ref: '#/components/schemas/Settings' }
+                      popup_post:
+                        oneOf:
+                          - $ref: '#/components/schemas/Post'
+                          - type: 'null'
+                      pinned: { type: array, items: { $ref: '#/components/schemas/Post' } }
+                      upcoming: { type: array, items: { $ref: '#/components/schemas/Post' } }
+                      latest: { type: array, items: { $ref: '#/components/schemas/Post' } }
+                      progress:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            dues_type: { $ref: '#/components/schemas/DuesType' }
+                            label: { type: string, example: September 2026 }
+                            paid: { type: integer, description: 'Active households that paid this period., example: 18' }
+                            total: { type: integer, description: 'Number of active households., example: 32' }
+  /settings:
+    get:
+      tags: [Public]
+      summary: Site settings
+      security: []
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Settings' }
+  /posts:
+    get:
+      tags: [Public]
+      summary: Published posts
+      description: Pinned posts first, then newest.
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/PostCategory' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200':
+          description: Paginated posts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Paginated'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Post' } }
+                      categories:
+                        type: object
+                        additionalProperties: { type: string }
+                        example: { pengumuman: Pengumuman, berita: Berita, kegiatan: Kegiatan, iuran: Iuran }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /posts/{slug}:
+    get:
+      tags: [Public]
+      summary: Post detail
+      security: []
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string }, example: kerja-bakti-minggu-ini }
+      responses:
+        '200':
+          description: Post with up to 3 related posts of the same category
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Post' }
+                  related: { type: array, items: { $ref: '#/components/schemas/Post' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /households:
+    get:
+      tags: [Public]
+      summary: Active households
+      description: For the house picker in the pay form. Phone and notes are hidden.
+      security: []
+      responses:
+        '200':
+          description: Households
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Household' } }
+  /dues-types:
+    get:
+      tags: [Public]
+      summary: Active dues types
+      security: []
+      responses:
+        '200':
+          description: Dues types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/DuesType' } }
+  /bank-accounts:
+    get:
+      tags: [Public]
+      summary: Active bank accounts / QRIS for transfers
+      description: If the list is empty, online payment is closed.
+      security: []
+      responses:
+        '200':
+          description: Bank accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/BankAccount' } }
+  /dues/ledger:
+    get:
+      tags: [Public]
+      summary: Dues ledger (who has paid)
+      description: |
+        For a monthly dues type, `rows[].months` holds 12 cells for the year.
+        For a one-time dues type, each row carries a single cell's fields directly (`status`, `payment`, ...).
+        Households listed are active ones plus inactive ones that have a payment for this type.
+      security: []
+      parameters:
+        - { name: dues_type_id, in: query, schema: { type: integer }, description: Defaults to the first type. }
+        - { name: year, in: query, schema: { type: integer }, description: Must be one of `years`; defaults to the current year. }
+      responses:
+        '200':
+          description: Ledger
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      dues_types: { type: array, items: { $ref: '#/components/schemas/DuesType' } }
+                      dues_type:
+                        oneOf:
+                          - $ref: '#/components/schemas/DuesType'
+                          - type: 'null'
+                      years: { type: array, items: { type: integer }, example: [2026, 2025] }
+                      year: { type: integer, example: 2026 }
+                      months: { type: array, items: { type: string }, example: ['2026-01', '2026-02'] }
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            household: { $ref: '#/components/schemas/Household' }
+                            months: { type: array, items: { $ref: '#/components/schemas/DuesCell' } }
+                            period: { type: ['string', 'null'] }
+                            period_label: { type: string }
+                            status: { $ref: '#/components/schemas/DuesStatus' }
+                            payment:
+                              oneOf:
+                                - $ref: '#/components/schemas/Payment'
+                                - type: 'null'
+  /dues/cashbook:
+    get:
+      tags: [Public]
+      summary: Cashbook (money in and out per month)
+      security: []
+      parameters:
+        - { name: year, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Cashbook
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      years: { type: array, items: { type: integer } }
+                      year: { type: integer }
+                      opening: { type: integer, description: Balance carried over from previous years. }
+                      total_in: { type: integer }
+                      total_out: { type: integer }
+                      closing: { type: integer }
+                      rows:
+                        type: array
+                        description: Only months that have movement.
+                        items:
+                          type: object
+                          properties:
+                            month: { type: string, example: '2026-09' }
+                            month_label: { type: string, example: September 2026 }
+                            in: { type: integer }
+                            out: { type: integer }
+                            balance: { type: integer }
+                      expenses: { type: array, items: { $ref: '#/components/schemas/Expense' } }
+  /households/{household}/dues/{duesType}:
+    get:
+      tags: [Public]
+      summary: Payment state of a household for a dues type
+      description: |
+        Drives the pay form (which months can be ticked) and the admin "record payment" form.
+        Only months with status `unpaid` can be submitted/recorded.
+      security: []
+      parameters:
+        - { name: household, in: path, required: true, schema: { type: integer } }
+        - { name: duesType, in: path, required: true, schema: { type: integer } }
+        - { name: year, in: query, schema: { type: integer, minimum: 2000 }, description: Monthly types only; defaults to the current year. }
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      household: { $ref: '#/components/schemas/Household' }
+                      dues_type: { $ref: '#/components/schemas/DuesType' }
+                      year: { type: ['integer', 'null'] }
+                      months: { type: array, description: '12 cells for monthly types, empty otherwise.', items: { $ref: '#/components/schemas/DuesCell' } }
+                      once:
+                        description: The single cell for one-time types, null for monthly types.
+                        oneOf:
+                          - $ref: '#/components/schemas/DuesCell'
+                          - type: 'null'
+                      recent_submissions: { type: array, description: Last 5 submissions of this household., items: { $ref: '#/components/schemas/PaymentSubmission' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /payment-submissions:
+    post:
+      tags: [Payment Submission]
+      summary: Submit transfer proof
+      description: |
+        Residents send proof of a bank transfer. The committee then approves or rejects it.
+        Months that are already paid or already waiting for review are refused with a 422 on `periods`.
+        For one-time dues omit `periods`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [household_id, dues_type_id, bank_account_id, proof]
+              properties:
+                household_id: { type: integer }
+                dues_type_id: { type: integer }
+                'periods[]':
+                  type: array
+                  maxItems: 24
+                  items: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+                  description: Required for monthly dues. Year must be within the last 5 years to next year.
+                bank_account_id: { type: integer, description: The account the resident transferred to. }
+                proof: { type: string, format: binary, description: 'jpg, jpeg, png, webp, heic or pdf; max 5 MB.' }
+                payer_name: { type: string, maxLength: 100 }
+                phone: { type: string, maxLength: 30 }
+                note: { type: string, maxLength: 255 }
+      responses:
+        '201':
+          description: Submitted. Keep `data.code` to check the status later.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PaymentSubmission' }
+                  message: { type: string }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /payment-submissions/{code}:
+    get:
+      tags: [Payment Submission]
+      summary: Check a submission by its code
+      security: []
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string }, example: K7M2QX9P, description: Case-insensitive. }
+      responses:
+        '200':
+          description: Submission
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PaymentSubmission' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/payments:
+    get:
+      tags: [Admin · Payments]
+      summary: Recorded payments
+      parameters:
+        - { name: household_id, in: query, schema: { type: integer } }
+        - { name: dues_type_id, in: query, schema: { type: integer } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200':
+          description: Paginated payments
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Paginated'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Admin · Payments]
+      summary: Record a cash/transfer payment
+      description: |
+        `amount` is the total received; it is split evenly across the selected months (any remainder goes to the
+        first months). Months already recorded are skipped and listed in `skipped`.
+        Returns 201 when at least one month was recorded, 200 when everything was skipped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [household_id, dues_type_id, amount, paid_on, method]
+              properties:
+                household_id: { type: integer }
+                dues_type_id: { type: integer }
+                periods: { type: array, items: { type: string, example: '2026-09' }, description: Required for monthly dues. }
+                amount: { type: integer, minimum: 0, maximum: 100000000 }
+                paid_on: { type: string, format: date, description: Today or earlier. }
+                method: { type: string, enum: [tunai, transfer] }
+                note: { type: string, maxLength: 255 }
+      responses:
+        '200': { $ref: '#/components/responses/RecordResult' }
+        '201': { $ref: '#/components/responses/RecordResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/payments/{payment}:
+    delete:
+      tags: [Admin · Payments]
+      summary: Delete a payment record
+      parameters:
+        - { name: payment, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/payment-submissions:
+    get:
+      tags: [Admin · Submissions]
+      summary: Submissions by status
+      description: Pending ones are sorted oldest first; reviewed ones newest review first. `counts` gives totals per status for tab badges.
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/SubmissionStatus' } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200':
+          description: Paginated submissions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Paginated'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/PaymentSubmission' } }
+                      counts:
+                        type: object
+                        properties:
+                          menunggu: { type: integer }
+                          diterima: { type: integer }
+                          ditolak: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /admin/payment-submissions/{submission}:
+    get:
+      tags: [Admin · Submissions]
+      summary: Submission detail
+      parameters: [{ $ref: '#/components/parameters/Submission' }]
+      responses:
+        '200': { $ref: '#/components/responses/SubmissionResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/payment-submissions/{submission}/proof:
+    get:
+      tags: [Admin · Submissions]
+      summary: Download the proof file
+      description: Streams the uploaded image or PDF. Needs the bearer token, so load it with an authenticated HTTP client rather than a plain image URL.
+      parameters: [{ $ref: '#/components/parameters/Submission' }]
+      responses:
+        '200':
+          description: File
+          content:
+            image/*: { schema: { type: string, format: binary } }
+            application/pdf: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/payment-submissions/{submission}/approve:
+    post:
+      tags: [Admin · Submissions]
+      summary: Approve (fully or partially)
+      description: |
+        Records a payment for each accepted month. Send the months you accept in `periods`; if fewer than submitted,
+        `reject_reason` is required and the other months become payable again. One-time dues: omit `periods`.
+        Months already recorded are not double counted (listed in `skipped`). 409 if already processed.
+      parameters: [{ $ref: '#/components/parameters/Submission' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paid_on]
+              properties:
+                paid_on: { type: string, format: date }
+                periods: { type: array, items: { type: string } }
+                reject_reason: { type: string, maxLength: 255 }
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PaymentSubmission' }
+                  message: { type: string }
+                  created: { type: array, items: { type: string }, example: [Januari 2026] }
+                  skipped: { type: array, items: { type: string } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/payment-submissions/{submission}/reject:
+    post:
+      tags: [Admin · Submissions]
+      summary: Reject
+      description: The resident can submit again. 409 if already processed.
+      parameters: [{ $ref: '#/components/parameters/Submission' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reject_reason]
+              properties:
+                reject_reason: { type: string, maxLength: 255 }
+      responses:
+        '200': { $ref: '#/components/responses/SubmissionResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/payment-submissions/{submission}/cancel:
+    post:
+      tags: [Admin · Submissions]
+      summary: Undo an approval
+      description: Deletes the payments created by the approval and moves the submission back to pending. Only for approved submissions (409 otherwise).
+      parameters: [{ $ref: '#/components/parameters/Submission' }]
+      responses:
+        '200':
+          description: Undone
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PaymentSubmission' }
+                  message: { type: string }
+                  removed_payments: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/payment-submissions/{submission}/reopen:
+    post:
+      tags: [Admin · Submissions]
+      summary: Reopen a rejected submission
+      description: Only for rejected submissions (409 otherwise).
+      parameters: [{ $ref: '#/components/parameters/Submission' }]
+      responses:
+        '200': { $ref: '#/components/responses/SubmissionResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/posts:
+    get:
+      tags: [Admin · Posts]
+      summary: All posts including drafts
+      description: Drafts first, then newest published.
+      parameters:
+        - { $ref: '#/components/parameters/PostCategory' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200':
+          description: Paginated posts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Paginated'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Post' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Admin · Posts]
+      summary: Create a post
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/PostInput' }
+          application/json:
+            schema: { $ref: '#/components/schemas/PostInput' }
+      responses:
+        '201': { $ref: '#/components/responses/PostResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/posts/{post}:
+    parameters:
+      - { name: post, in: path, required: true, schema: { type: integer }, description: Post ID (not slug). }
+    get:
+      tags: [Admin · Posts]
+      summary: Post detail
+      responses:
+        '200': { $ref: '#/components/responses/PostResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Admin · Posts]
+      summary: Update a post
+      description: 'With image uploads send `POST` + `_method=PUT` as multipart. The slug is regenerated when the title changes.'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/PostInput' }
+          application/json:
+            schema: { $ref: '#/components/schemas/PostInput' }
+      responses:
+        '200': { $ref: '#/components/responses/PostResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Admin · Posts]
+      summary: Delete a post and its images
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/households:
+    get:
+      tags: [Admin · Households]
+      summary: All households (with payment count)
+      responses:
+        '200':
+          description: Households
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Household' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Admin · Households]
+      summary: Add a household
+      requestBody: { $ref: '#/components/requestBodies/HouseholdInput' }
+      responses:
+        '201': { $ref: '#/components/responses/HouseholdResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/households/{household}:
+    parameters:
+      - { name: household, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Households]
+      summary: Household detail
+      responses:
+        '200': { $ref: '#/components/responses/HouseholdResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Admin · Households]
+      summary: Update a household
+      requestBody: { $ref: '#/components/requestBodies/HouseholdInput' }
+      responses:
+        '200': { $ref: '#/components/responses/HouseholdResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Admin · Households]
+      summary: Delete a household
+      description: 409 if it has payments (deactivate instead) or pending submissions.
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/dues-types:
+    get:
+      tags: [Admin · Dues Types]
+      summary: All dues types (with payment count and sum)
+      responses:
+        '200':
+          description: Dues types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/DuesType' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Admin · Dues Types]
+      summary: Add a dues type
+      requestBody: { $ref: '#/components/requestBodies/DuesTypeInput' }
+      responses:
+        '201': { $ref: '#/components/responses/DuesTypeResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/dues-types/{duesType}:
+    parameters:
+      - { name: duesType, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Dues Types]
+      summary: Dues type detail
+      responses:
+        '200': { $ref: '#/components/responses/DuesTypeResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Admin · Dues Types]
+      summary: Update a dues type
+      requestBody: { $ref: '#/components/requestBodies/DuesTypeInput' }
+      responses:
+        '200': { $ref: '#/components/responses/DuesTypeResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Admin · Dues Types]
+      summary: Delete a dues type
+      description: 409 if it has payments (deactivate instead) or pending submissions.
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/expenses:
+    get:
+      tags: [Admin · Expenses]
+      summary: Expenses
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200':
+          description: Paginated expenses
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Paginated'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Expense' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Admin · Expenses]
+      summary: Record an expense
+      requestBody: { $ref: '#/components/requestBodies/ExpenseInput' }
+      responses:
+        '201': { $ref: '#/components/responses/ExpenseResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/expenses/{expense}:
+    parameters:
+      - { name: expense, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Expenses]
+      summary: Expense detail
+      responses:
+        '200': { $ref: '#/components/responses/ExpenseResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Admin · Expenses]
+      summary: Update an expense
+      requestBody: { $ref: '#/components/requestBodies/ExpenseInput' }
+      responses:
+        '200': { $ref: '#/components/responses/ExpenseResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Admin · Expenses]
+      summary: Delete an expense
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/bank-accounts:
+    get:
+      tags: [Admin · Bank Accounts]
+      summary: All bank accounts
+      responses:
+        '200':
+          description: Bank accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/BankAccount' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Admin · Bank Accounts]
+      summary: Add a bank account or QRIS
+      requestBody: { $ref: '#/components/requestBodies/BankAccountInput' }
+      responses:
+        '201': { $ref: '#/components/responses/BankAccountResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/bank-accounts/{bankAccount}:
+    parameters:
+      - { name: bankAccount, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Bank Accounts]
+      summary: Bank account detail
+      responses:
+        '200': { $ref: '#/components/responses/BankAccountResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Admin · Bank Accounts]
+      summary: Update a bank account
+      description: 'With a QRIS upload send `POST` + `_method=PUT` as multipart.'
+      requestBody: { $ref: '#/components/requestBodies/BankAccountInput' }
+      responses:
+        '200': { $ref: '#/components/responses/BankAccountResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Admin · Bank Accounts]
+      summary: Delete a bank account and its QRIS image
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/settings:
+    get:
+      tags: [Admin · Settings & Users]
+      summary: Site settings
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Settings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Admin · Settings & Users]
+      summary: Update site settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [site_name]
+              properties:
+                site_name: { type: string, maxLength: 80 }
+                site_tagline: { type: string, maxLength: 160 }
+                address: { type: string, maxLength: 255 }
+                treasurer_contact: { type: string, maxLength: 160 }
+                payment_info: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Settings' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/password:
+    put:
+      tags: [Admin · Settings & Users]
+      summary: Change own password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, password, password_confirmation]
+              properties:
+                current_password: { type: string }
+                password: { type: string, minLength: 8 }
+                password_confirmation: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/users:
+    get:
+      tags: [Admin · Settings & Users]
+      summary: Committee members
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/User' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Admin · Settings & Users]
+      summary: Add a committee member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, maxLength: 100 }
+                email: { type: string, format: email, maxLength: 160 }
+                password: { type: string, minLength: 8 }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/users/{user}:
+    delete:
+      tags: [Admin · Settings & Users]
+      summary: Revoke a committee member's access
+      description: Also revokes their API tokens. 409 when deleting your own account.
+      parameters:
+        - { name: user, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Token from `POST /auth/login`.
+
+  parameters:
+    Page:
+      { name: page, in: query, schema: { type: integer, minimum: 1 } }
+    PerPage:
+      { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100 }, description: 'Max 50 on public posts.' }
+    PostCategory:
+      { name: category, in: query, schema: { $ref: '#/components/schemas/PostCategory' } }
+    Submission:
+      { name: submission, in: path, required: true, schema: { type: integer }, description: Submission ID (not code). }
+
+  requestBodies:
+    HouseholdInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [number, head_name]
+            properties:
+              number: { type: string, maxLength: 30, description: 'Unique house number., example: A-7' }
+              head_name: { type: string, maxLength: 100 }
+              phone: { type: string, maxLength: 30 }
+              note: { type: string, maxLength: 1000 }
+              is_active: { type: boolean }
+    DuesTypeInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, amount, frequency]
+            properties:
+              name: { type: string, maxLength: 100 }
+              amount: { type: integer, minimum: 0, maximum: 100000000, description: Amount per period in Rupiah. }
+              frequency: { $ref: '#/components/schemas/Frequency' }
+              starts_on: { type: string, pattern: '^\d{4}-\d{2}$', description: 'Monthly only (YYYY-MM). Months before it are not applicable.' }
+              due_on: { type: string, format: date, description: One-time only. }
+              description: { type: string, maxLength: 1000 }
+              is_active: { type: boolean }
+    ExpenseInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [spent_on, description, amount]
+            properties:
+              spent_on: { type: string, format: date, description: Today or earlier. }
+              description: { type: string, maxLength: 255 }
+              amount: { type: integer, minimum: 1, maximum: 100000000 }
+    BankAccountInput:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [bank_name]
+            description: Either `account_number` or a QRIS image is required.
+            properties:
+              bank_name: { type: string, maxLength: 60, example: BCA }
+              account_number: { type: string, maxLength: 60 }
+              account_name: { type: string, maxLength: 100 }
+              qris: { type: string, format: binary, description: 'Image, max 3 MB.' }
+              remove_qris: { type: boolean }
+              position: { type: integer, minimum: 0, maximum: 999, description: Sort order. }
+              is_active: { type: boolean }
+
+  responses:
+    Message:
+      description: OK
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Message' }
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Message' }
+          example: { message: Unauthenticated. }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Message' }
+    Conflict:
+      description: Business rule prevents the action
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Message' }
+          example: { message: 'Rumah A-7 sudah punya catatan iuran, jadi tidak bisa dihapus. Nonaktifkan saja kalau sudah pindah.' }
+    TooManyRequests:
+      description: Rate limited
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Message' }
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ValidationError' }
+    RecordResult:
+      description: Recording result
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string }
+              created: { type: array, items: { type: string }, example: [Januari 2026, Februari 2026] }
+              skipped: { type: array, items: { type: string } }
+    SubmissionResult:
+      description: Submission
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/PaymentSubmission' }
+              message: { type: string }
+    PostResult:
+      description: Post
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/Post' }
+              message: { type: string }
+    HouseholdResult:
+      description: Household
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/Household' }
+              message: { type: string }
+    DuesTypeResult:
+      description: Dues type
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/DuesType' }
+              message: { type: string }
+    ExpenseResult:
+      description: Expense
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/Expense' }
+              message: { type: string }
+    BankAccountResult:
+      description: Bank account
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/BankAccount' }
+              message: { type: string }
+
+  schemas:
+    Message:
+      type: object
+      properties:
+        message: { type: string }
+    ValidationError:
+      type: object
+      properties:
+        message: { type: string, example: Centang minimal satu bulan yang dibayar. }
+        errors:
+          type: object
+          additionalProperties: { type: array, items: { type: string } }
+          example: { periods: [Centang minimal satu bulan yang dibayar.] }
+    Paginated:
+      type: object
+      properties:
+        links:
+          type: object
+          properties:
+            first: { type: ['string', 'null'] }
+            last: { type: ['string', 'null'] }
+            prev: { type: ['string', 'null'] }
+            next: { type: ['string', 'null'] }
+        meta:
+          type: object
+          properties:
+            current_page: { type: integer }
+            from: { type: ['integer', 'null'] }
+            last_page: { type: integer }
+            per_page: { type: integer }
+            to: { type: ['integer', 'null'] }
+            total: { type: integer }
+    Settings:
+      type: object
+      properties:
+        site_name: { type: string, example: RT 04 Griya Asri }
+        site_tagline: { type: string }
+        address: { type: string }
+        treasurer_contact: { type: string }
+        payment_info: { type: string }
+    PostCategory:
+      type: string
+      enum: [pengumuman, berita, kegiatan, iuran]
+    Frequency:
+      type: string
+      enum: [bulanan, sekali]
+      description: '`bulanan` = monthly, `sekali` = one-time.'
+    SubmissionStatus:
+      type: string
+      enum: [menunggu, diterima, ditolak]
+      description: '`menunggu` = pending, `diterima` = approved, `ditolak` = rejected.'
+    DuesStatus:
+      type: string
+      enum: [paid, pending, unpaid, not_applicable]
+      description: '`not_applicable` = month is before the dues type `starts_on`.'
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, description: Only for authenticated requests. }
+        created_at: { type: string, format: date-time, description: Only for authenticated requests. }
+    Post:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        title: { type: string }
+        category: { $ref: '#/components/schemas/PostCategory' }
+        category_label: { type: string }
+        excerpt: { type: string, description: 'Plain text, max 160 chars.' }
+        body: { type: string, description: Markdown source. }
+        body_html: { type: string, description: 'Rendered, HTML-escaped Markdown.' }
+        image_url: { type: ['string', 'null'] }
+        popup_image_url: { type: ['string', 'null'] }
+        event_starts_at: { type: ['string', 'null'], format: date-time }
+        event_location: { type: ['string', 'null'] }
+        is_pinned: { type: boolean }
+        is_popup: { type: boolean }
+        is_published: { type: boolean }
+        published_at: { type: ['string', 'null'], format: date-time }
+        author: { $ref: '#/components/schemas/User' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PostInput:
+      type: object
+      required: [title, category, body, action]
+      properties:
+        title: { type: string, maxLength: 160 }
+        category: { $ref: '#/components/schemas/PostCategory' }
+        body: { type: string, maxLength: 20000, description: Markdown. }
+        action: { type: string, enum: [publish, draft], description: '`draft` unpublishes; `publish` keeps the original publish time if already published.' }
+        event_starts_at: { type: string, format: date-time, description: Required when category is `kegiatan`. }
+        event_location: { type: string, maxLength: 160 }
+        is_pinned: { type: boolean }
+        is_popup: { type: boolean }
+        image: { type: string, format: binary, description: 'Image, max 3 MB (multipart only).' }
+        remove_image: { type: boolean }
+        popup_image: { type: string, format: binary, description: 'Image, max 4 MB (multipart only).' }
+        remove_popup_image: { type: boolean }
+    Household:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string, example: A-7 }
+        head_name: { type: string, example: Pak Budi }
+        label: { type: string, example: A-7 · Pak Budi }
+        is_active: { type: boolean }
+        phone: { type: ['string', 'null'], description: Admin only. }
+        note: { type: ['string', 'null'], description: Admin only. }
+        payments_count: { type: integer, description: Admin list/detail only. }
+    DuesType:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, example: Iuran Keamanan }
+        amount: { type: integer, example: 25000 }
+        frequency: { $ref: '#/components/schemas/Frequency' }
+        is_monthly: { type: boolean }
+        starts_on: { type: ['string', 'null'], example: '2026-01', description: YYYY-MM }
+        due_on: { type: ['string', 'null'], format: date }
+        description: { type: ['string', 'null'] }
+        is_active: { type: boolean }
+        payments_count: { type: integer, description: Admin only. }
+        payments_sum_amount: { type: integer, description: Admin only. }
+    BankAccount:
+      type: object
+      properties:
+        id: { type: integer }
+        bank_name: { type: string, example: BCA }
+        account_number: { type: ['string', 'null'] }
+        account_name: { type: ['string', 'null'] }
+        label: { type: string, example: BCA · 1234567890 }
+        qris_url: { type: ['string', 'null'] }
+        is_active: { type: boolean }
+        position: { type: integer }
+    Expense:
+      type: object
+      properties:
+        id: { type: integer }
+        spent_on: { type: string, format: date }
+        description: { type: string }
+        amount: { type: integer }
+        recorder: { $ref: '#/components/schemas/User' }
+    Payment:
+      type: object
+      properties:
+        id: { type: integer }
+        household_id: { type: integer }
+        dues_type_id: { type: integer }
+        period: { type: ['string', 'null'], example: '2026-09' }
+        period_label: { type: string, example: September 2026 }
+        amount: { type: integer }
+        paid_on: { type: string, format: date }
+        method: { type: string, enum: [tunai, transfer] }
+        method_label: { type: string }
+        note: { type: ['string', 'null'], description: Admin only. }
+        payment_submission_id: { type: ['integer', 'null'], description: Admin only. }
+        household: { $ref: '#/components/schemas/Household' }
+        dues_type: { $ref: '#/components/schemas/DuesType' }
+        recorder: { $ref: '#/components/schemas/User' }
+        created_at: { type: string, format: date-time }
+    DuesCell:
+      type: object
+      properties:
+        period: { type: ['string', 'null'], example: '2026-09' }
+        period_label: { type: string, example: September 2026 }
+        status: { $ref: '#/components/schemas/DuesStatus' }
+        payment:
+          oneOf:
+            - $ref: '#/components/schemas/Payment'
+            - type: 'null'
+    PaymentSubmission:
+      type: object
+      properties:
+        id: { type: integer, description: Admin only. }
+        code: { type: string, example: K7M2QX9P }
+        status: { $ref: '#/components/schemas/SubmissionStatus' }
+        status_label: { type: string }
+        is_one_time: { type: boolean }
+        periods: { type: array, items: { type: string } }
+        periods_label: { type: string, example: 'Jan 2026, Feb 2026' }
+        approved_periods: { type: ['array', 'null'], items: { type: string } }
+        declined_periods: { type: array, items: { type: string }, description: Months not accepted in a partial approval. }
+        is_partial: { type: boolean }
+        unit_amount: { type: integer }
+        total: { type: integer }
+        accepted_total: { type: integer }
+        payer_name: { type: ['string', 'null'] }
+        phone: { type: ['string', 'null'], description: Admin only. }
+        note: { type: ['string', 'null'] }
+        reject_reason: { type: ['string', 'null'] }
+        reviewed_at: { type: ['string', 'null'], format: date-time }
+        proof_url: { type: string, description: Admin only. Requires the bearer token. }
+        household: { $ref: '#/components/schemas/Household' }
+        dues_type: { $ref: '#/components/schemas/DuesType' }
+        bank_account: { $ref: '#/components/schemas/BankAccount' }
+        reviewer: { $ref: '#/components/schemas/User' }
+        created_at: { type: string, format: date-time }
