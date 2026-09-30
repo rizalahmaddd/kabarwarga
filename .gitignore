@@ -26,4 +26,4 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /.playwright-mcp
-/Archive.zip
+*.zip
