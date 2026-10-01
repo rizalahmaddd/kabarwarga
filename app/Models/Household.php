@@ -34,4 +34,12 @@ class Household extends Model
     {
         return "{$this->number} · {$this->head_name}";
     }
+
+    /**
+     * Added to QRIS amounts so the treasurer can tell which house a mutation came from.
+     */
+    public function uniqueCode(): int
+    {
+        return ($this->id - 1) % 999 + 1;
+    }
 }

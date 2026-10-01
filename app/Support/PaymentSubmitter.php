@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\BankAccount;
 use App\Models\DuesType;
+use App\Models\Household;
 use App\Models\Payment;
 use App\Models\PaymentSubmission;
 use Carbon\CarbonImmutable;
@@ -18,6 +20,7 @@ class PaymentSubmitter
     {
         $type = DuesType::findOrFail($data['dues_type_id']);
         $periods = $this->checkedPeriods($type, (int) $data['household_id'], $data['periods'] ?? []);
+        $account = BankAccount::findOrFail($data['bank_account_id']);
 
         return PaymentSubmission::create([
             'code' => PaymentSubmission::newCode(),
@@ -25,7 +28,8 @@ class PaymentSubmitter
             'dues_type_id' => $type->id,
             'periods' => $periods,
             'unit_amount' => $type->amount,
-            'bank_account_id' => $data['bank_account_id'],
+            'unique_code' => $account->hasDynamicQris() ? Household::findOrFail($data['household_id'])->uniqueCode() : 0,
+            'bank_account_id' => $account->id,
             'payer_name' => $data['payer_name'] ?? null,
             'phone' => $data['phone'] ?? null,
             'note' => $data['note'] ?? null,

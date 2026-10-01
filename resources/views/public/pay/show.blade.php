@@ -54,7 +54,12 @@
                 </div>
                 <div class="flex justify-between gap-4 py-2.5">
                     <dt class="text-slate-500">Jumlah</dt>
-                    <dd class="font-extrabold text-slate-900 text-right tabular-nums">{{ rupiah($submission->total()) }}</dd>
+                    <dd class="font-extrabold text-slate-900 text-right tabular-nums">
+                        {{ rupiah($submission->transferTotal()) }}
+                        @if ($submission->unique_code)
+                            <span class="block text-xs font-normal text-slate-500">termasuk kode unik {{ $submission->unique_code }}</span>
+                        @endif
+                    </dd>
                 </div>
                 @if ($submission->bankAccount)
                     <div class="flex justify-between gap-4 py-2.5">

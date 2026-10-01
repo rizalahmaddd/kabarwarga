@@ -45,20 +45,121 @@
                     </div>
                 </div>
 
-                <div>
-                    <label for="qris" class="field-label">Gambar QRIS <span class="font-normal text-slate-400">(opsional)</span></label>
+                {{-- Upload QRIS Modern Card --}}
+                <div class="space-y-3 pt-1" data-image-uploader data-has-existing="{{ $account->qrisUrl() ? 'true' : 'false' }}">
+                    <div>
+                        <label class="field-label block font-bold text-slate-900 text-sm">
+                            Gambar QRIS <span class="font-normal text-slate-500 text-xs">(Opsional, Maks. 3 MB)</span>
+                        </label>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Warga dapat memindai atau membuka gambar QRIS ini dari aplikasi m-banking atau e-wallet saat konfirmasi pembayaran iuran.
+                        </p>
+                    </div>
+
+                    <input type="hidden" name="remove_qris" data-remove-input value="0">
+                    <input id="qris" name="qris" type="file" accept="image/*" class="sr-only" @error('qris') aria-invalid="true" @enderror>
+
+                    {{-- Existing Image Card --}}
                     @if ($account->qrisUrl())
-                        <div class="flex items-center gap-3 mb-2">
-                            <img src="{{ $account->qrisUrl() }}" alt="QRIS saat ini" class="size-24 rounded-lg border border-slate-200 object-cover">
-                            <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-                                <input type="hidden" name="remove_qris" value="0">
-                                <input type="checkbox" name="remove_qris" value="1" class="size-4 accent-terakota"> Hapus QRIS
-                            </label>
+                        <div data-existing-card class="bg-slate-50/80 rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3.5 min-w-0">
+                                <img src="{{ $account->qrisUrl() }}" alt="QRIS saat ini" class="size-16 sm:size-18 rounded-xl object-contain bg-white p-1 border border-slate-200 shadow-2xs shrink-0">
+                                <div class="min-w-0">
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-daun-dark text-[11px] font-bold border border-emerald-200/60 inline-block">QRIS Aktif</span>
+                                    <p class="text-xs font-semibold text-slate-700 mt-1 truncate">QRIS saat ini</p>
+                                    <p class="text-[11px] text-slate-400">Klik "Ganti QRIS" untuk langsung memilih gambar pengganti.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200 justify-end">
+                                <button type="button" data-change-btn class="btn btn-sm btn-quiet text-xs font-semibold">
+                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                    Ganti QRIS
+                                </button>
+                                <button type="button" data-delete-btn class="btn btn-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 text-xs font-semibold">
+                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"/>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                    Hapus
+                                </button>
+                            </div>
+                        </div>
+
+                        <div data-delete-notice class="hidden p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <svg class="size-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                                <span>Gambar QRIS akan dihapus saat disimpan.</span>
+                            </div>
+                            <button type="button" data-undo-delete-btn class="font-bold text-amber-800 hover:underline cursor-pointer shrink-0">
+                                Batalkan Hapus
+                            </button>
                         </div>
                     @endif
-                    <input id="qris" name="qris" type="file" accept="image/*" class="input py-2 text-sm" @error('qris') aria-invalid="true" @enderror>
-                    <span class="field-hint">Warga bisa scan atau buka gambar ini dari HP. Maksimal 3 MB.</span>
+
+                    {{-- Live Preview Card --}}
+                    <div data-preview-card class="hidden bg-white rounded-2xl border-2 border-emerald-500/40 p-3.5 sm:p-4 shadow-xs">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3.5 min-w-0">
+                                <img data-preview-img src="" alt="Pratinjau QRIS" class="size-16 sm:size-18 rounded-xl object-contain bg-white p-1 border border-slate-200 shadow-2xs shrink-0">
+                                <div class="min-w-0">
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-100 text-daun-dark text-[11px] font-bold inline-flex items-center gap-1">
+                                        <span class="size-1.5 rounded-full bg-daun animate-pulse"></span>
+                                        QRIS Baru Terpilih
+                                    </span>
+                                    <p data-preview-name class="text-xs font-semibold text-slate-800 mt-1 truncate">filename.jpg</p>
+                                    <p data-preview-size class="text-[11px] text-slate-500">120 KB · Siap diunggah</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 justify-end">
+                                <button type="button" data-rechoose-btn class="btn btn-sm btn-quiet text-xs font-semibold">Pilih Lain</button>
+                                <button type="button" data-cancel-new-btn class="btn btn-sm text-slate-600 hover:bg-slate-100 text-xs font-semibold">Batal</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Dropzone --}}
+                    <div data-dropzone class="{{ $account->qrisUrl() ? 'hidden' : '' }}">
+                        <label for="qris" class="group flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 hover:border-daun hover:bg-emerald-50/30 transition-all cursor-pointer text-center select-none">
+                            <div class="size-12 rounded-2xl bg-white shadow-2xs border border-slate-200/80 text-slate-600 group-hover:bg-emerald-100 group-hover:text-daun group-hover:border-emerald-200 transition-all flex items-center justify-center mb-3">
+                                <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                                    <circle cx="9" cy="9" r="2"/>
+                                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                                </svg>
+                            </div>
+                            <span class="font-bold text-xs sm:text-sm text-slate-700 group-hover:text-daun transition-colors">
+                                Ketuk untuk pilih gambar QRIS
+                            </span>
+                            <span class="text-[11px] text-slate-400 mt-1">atau seret file ke area ini (JPG, PNG, WEBP maks. 3 MB)</span>
+                        </label>
+                    </div>
                     @error('qris') <span class="field-error">{{ $message }}</span> @enderror
+
+                    @php $qrisPayload = old('qris_payload', $account->qris_payload); @endphp
+                    <div data-qris-decoder class="rounded-xl border border-slate-200/80 bg-slate-50/50 p-3.5 space-y-2">
+                        <p class="text-sm font-bold text-slate-900">QRIS dinamis + kode unik</p>
+                        <p data-qris-status class="text-xs text-slate-500">
+                            @if ($account->hasDynamicQris())
+                                Aktif. Warga akan mendapat QRIS berisi nominal iuran + kode unik rumahnya.
+                            @else
+                                Kode QRIS dibaca otomatis dari gambar. Kalau berhasil, warga mendapat QRIS dengan nominal yang sudah terisi.
+                            @endif
+                        </p>
+                        <details @if ($errors->has('qris_payload')) open @endif>
+                            <summary class="text-xs font-semibold text-slate-600 cursor-pointer select-none">Lihat / isi kode QRIS manual</summary>
+                            <textarea id="qris_payload" name="qris_payload" rows="3" maxlength="512" data-qris-payload spellcheck="false"
+                                      class="input mt-2 font-mono text-xs break-all" placeholder="00020101021126..."
+                                      @error('qris_payload') aria-invalid="true" @enderror>{{ $qrisPayload }}</textarea>
+                            <span class="field-hint">Teks hasil scan QRIS statis (diawali 000201). Kosongkan kalau tidak ingin nominal otomatis.</span>
+                        </details>
+                        @error('qris_payload') <span class="field-error">{{ $message }}</span> @enderror
+                    </div>
                 </div>
 
                 <div class="w-32">

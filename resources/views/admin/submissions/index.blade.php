@@ -69,10 +69,13 @@
                                 <p class="text-sm text-slate-700 mt-1.5"><strong>{{ $submission->duesType->name }}</strong> · {{ $submission->periodsLabel() }}</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-xl font-extrabold tabular-nums text-slate-900">{{ rupiah($submission->total()) }}</p>
+                                <p class="text-xl font-extrabold tabular-nums text-slate-900">{{ rupiah($submission->transferTotal()) }}</p>
                                 <p class="text-xs text-slate-500">
                                     @if (count($submission->periods) > 1)
                                         {{ count($submission->periods) }} × {{ rupiah($submission->unit_amount) }}
+                                    @endif
+                                    @if ($submission->unique_code)
+                                        <span class="block">termasuk kode unik <strong class="text-slate-700">{{ $submission->unique_code }}</strong></span>
                                     @endif
                                 </p>
                             </div>

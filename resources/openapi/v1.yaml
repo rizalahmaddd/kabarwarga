@@ -1070,6 +1070,7 @@ components:
               account_name: { type: string, maxLength: 100 }
               qris: { type: string, format: binary, description: 'Gambar, maks 3 MB.' }
               remove_qris: { type: boolean }
+              qris_payload: { type: string, description: 'Isi QRIS statis hasil scan (diawali 000201). Wajib dikirim ulang saat mengganti gambar QRIS, kalau tidak QRIS dinamis dimatikan.' }
               position: { type: integer, minimum: 0, maximum: 999, description: Urutan tampil. }
               is_active: { type: boolean }
 
@@ -1278,6 +1279,7 @@ components:
         head_name: { type: string, example: Pak Budi }
         label: { type: string, example: A-7 · Pak Budi }
         is_active: { type: boolean }
+        unique_code: { type: integer, example: 7, description: Angka unik rumah (1–999) yang ditambahkan ke nominal QRIS dinamis. }
         phone: { type: ['string', 'null'], description: Khusus pengurus. }
         note: { type: ['string', 'null'], description: Khusus pengurus. }
         payments_count: { type: integer, description: Khusus daftar/detail pengurus. }
@@ -1304,6 +1306,8 @@ components:
         account_name: { type: ['string', 'null'] }
         label: { type: string, example: BCA · 1234567890 }
         qris_url: { type: ['string', 'null'] }
+        qris_payload: { type: ['string', 'null'], description: Isi QRIS statis (EMVCo). Dipakai untuk membuat QRIS dinamis di aplikasi. }
+        has_dynamic_qris: { type: boolean, description: 'true kalau qris_payload valid; aplikasi sebaiknya membuat QRIS dinamis dengan nominal = total iuran + unique_code rumah.' }
         is_active: { type: boolean }
         position: { type: integer }
     Expense:
@@ -1356,7 +1360,9 @@ components:
         declined_periods: { type: array, items: { type: string }, description: Bulan yang tidak diterima saat diterima sebagian. }
         is_partial: { type: boolean }
         unit_amount: { type: integer }
-        total: { type: integer }
+        total: { type: integer, description: Total iuran tanpa kode unik. }
+        unique_code: { type: integer, description: Kode unik rumah yang ditambahkan ke nominal QRIS. 0 kalau rekening tidak memakai QRIS dinamis. }
+        transfer_total: { type: integer, description: Nominal yang seharusnya masuk ke rekening (total + unique_code). }
         accepted_total: { type: integer }
         payer_name: { type: ['string', 'null'] }
         phone: { type: ['string', 'null'], description: Khusus pengurus. }

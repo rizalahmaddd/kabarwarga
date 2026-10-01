@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['code', 'household_id', 'dues_type_id', 'periods', 'approved_periods', 'unit_amount', 'bank_account_id', 'payer_name', 'phone', 'note', 'proof_path', 'status', 'reject_reason', 'reviewed_by', 'reviewed_at'])]
+#[Fillable(['code', 'household_id', 'dues_type_id', 'periods', 'approved_periods', 'unit_amount', 'unique_code', 'bank_account_id', 'payer_name', 'phone', 'note', 'proof_path', 'status', 'reject_reason', 'reviewed_by', 'reviewed_at'])]
 class PaymentSubmission extends Model
 {
     public const PENDING = 'menunggu';
@@ -29,6 +29,7 @@ class PaymentSubmission extends Model
             'periods' => 'array',
             'approved_periods' => 'array',
             'unit_amount' => 'integer',
+            'unique_code' => 'integer',
             'reviewed_at' => 'immutable_datetime',
         ];
     }
@@ -89,6 +90,11 @@ class PaymentSubmission extends Model
     public function total(): int
     {
         return $this->unit_amount * count($this->periods);
+    }
+
+    public function transferTotal(): int
+    {
+        return $this->total() + $this->unique_code;
     }
 
     /**

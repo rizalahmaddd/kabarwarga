@@ -21,6 +21,8 @@ class BankAccountResource extends JsonResource
             'account_name' => $this->account_name,
             'label' => $this->label(),
             'qris_url' => $this->qrisUrl(),
+            'qris_payload' => $this->qris_payload,
+            'has_dynamic_qris' => $this->hasDynamicQris(),
             'is_active' => $this->is_active,
             'position' => $this->position,
         ];

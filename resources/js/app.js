@@ -129,6 +129,116 @@ function setupScrollCurrent() {
     });
 }
 
+async function setupQrisDecoder() {
+    const boxes = document.querySelectorAll('[data-qris-decoder]:not([data-ready])');
+    if (!boxes.length) return;
+    const { decodeQrisImage, isStaticQris } = await import('./qris');
+
+    boxes.forEach((box) => {
+        const uploader = box.closest('[data-image-uploader]');
+        const input = uploader?.querySelector('input[type="file"]');
+        const payloadField = box.querySelector('[data-qris-payload]');
+        const status = box.querySelector('[data-qris-status]');
+        if (!input || !payloadField || box.dataset.ready) return;
+        box.dataset.ready = 'true';
+
+        const original = payloadField.value;
+        const setStatus = (text, tone = 'muted') => {
+            status.textContent = text;
+            status.className = 'text-xs ' + { ok: 'text-daun-dark font-semibold', warn: 'text-amber-700 font-semibold', muted: 'text-slate-500' }[tone];
+        };
+
+        async function read(source) {
+            setStatus('Membaca kode QRIS dari gambar...');
+            try {
+                const payload = await decodeQrisImage(source);
+                if (!payload) {
+                    payloadField.value = '';
+                    setStatus('Kode QR tidak terbaca dari gambar ini. Warga tetap bisa memindai gambarnya, tapi nominal harus diketik manual.', 'warn');
+                } else if (!isStaticQris(payload)) {
+                    payloadField.value = '';
+                    setStatus('Gambar ini bukan QRIS statis yang valid, jadi nominal otomatis tidak bisa dipakai.', 'warn');
+                } else {
+                    payloadField.value = payload;
+                    setStatus('QRIS terbaca. Warga akan mendapat QRIS berisi nominal iuran + kode unik rumahnya.', 'ok');
+                }
+            } catch {
+                setStatus('Gambar tidak bisa dibaca di browser ini. Isi kode QRIS manual kalau perlu.', 'warn');
+            }
+        }
+
+        input.addEventListener('change', () => input.files?.[0] && read(input.files[0]));
+        uploader.querySelector('[data-dropzone]')?.addEventListener('drop', (e) => e.dataTransfer?.files?.[0] && read(e.dataTransfer.files[0]));
+        uploader.querySelector('[data-delete-btn]')?.addEventListener('click', () => {
+            payloadField.value = '';
+            setStatus('QRIS akan dihapus saat disimpan.');
+        });
+        [uploader.querySelector('[data-undo-delete-btn]'), uploader.querySelector('[data-cancel-new-btn]')].forEach((btn) => {
+            btn?.addEventListener('click', () => {
+                payloadField.value = original;
+                setStatus(original ? 'Memakai kode QRIS yang tersimpan.' : 'Belum ada kode QRIS.');
+            });
+        });
+
+        const existing = uploader.querySelector('[data-existing-card] img');
+        if (existing && !payloadField.value) read(existing.src);
+    });
+}
+
+async function setupQrisPayment() {
+    const box = document.querySelector('[data-qris-payment]');
+    if (!box) return;
+    const { isStaticQris, qrisWithAmount, renderQr } = await import('./qris');
+
+    const uniqueCode = Number(box.dataset.uniqueCode || 0);
+    const baseTotal = () => Number(document.getElementById('selected-months-total')?.dataset.total || 0);
+    const radios = document.querySelectorAll('input[name="bank_account_id"]');
+    const transferTotal = document.getElementById('transfer-total');
+    const uniqueNote = document.getElementById('transfer-unique-note');
+    const formatRupiah = (num) => 'Rp ' + num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    async function sync() {
+        const selected = [...radios].find((r) => r.checked);
+        const payload = selected?.dataset.qrisPayload || '';
+        const base = baseTotal();
+        const usesCode = payload !== '' && isStaticQris(payload);
+        const amount = base > 0 && usesCode ? base + uniqueCode : base;
+
+        if (transferTotal) transferTotal.textContent = formatRupiah(amount);
+        if (uniqueNote) uniqueNote.classList.toggle('hidden', !usesCode || base === 0);
+
+        const ready = usesCode && base > 0;
+        document.querySelectorAll('[data-transfer-amount]').forEach((el) => {
+            el.textContent = formatRupiah(amount);
+        });
+        document.querySelectorAll('[data-qris-panel]').forEach((el) => {
+            el.classList.toggle('hidden', el.dataset.accountId !== selected?.value);
+        });
+
+        const panel = document.querySelector(`[data-qris-panel][data-account-id="${selected?.value}"]`);
+        const dynamic = panel?.querySelector('[data-qris-dynamic]');
+        if (!dynamic) return;
+
+        const download = panel.querySelector('[data-qris-download]');
+        dynamic.classList.toggle('hidden', !ready);
+        panel.querySelector('[data-qris-hint]')?.classList.toggle('hidden', ready);
+        panel.querySelector('[data-qris-info]')?.classList.toggle('hidden', !ready);
+        if (download) download.hidden = !ready;
+        if (!ready) return;
+
+        const canvas = dynamic.querySelector('canvas');
+        await renderQr(canvas, qrisWithAmount(payload, amount));
+        if (download) {
+            download.href = canvas.toDataURL('image/png');
+            download.download = `qris-${amount}.png`;
+        }
+    }
+
+    radios.forEach((r) => r.addEventListener('change', sync));
+    document.addEventListener('payment-total-changed', sync);
+    sync();
+}
+
 // Admin Payment Form Live Calculator & Quick Selectors
 function setupPaymentCalculator() {
     const container = document.getElementById('payment-month-picker');
@@ -150,7 +260,11 @@ function setupPaymentCalculator() {
         const total = count * unitAmount;
 
         if (summaryCount) summaryCount.textContent = count;
-        if (summaryTotal) summaryTotal.textContent = formatRupiah(total);
+        if (summaryTotal) {
+            summaryTotal.textContent = formatRupiah(total);
+            summaryTotal.dataset.total = total;
+        }
+        document.dispatchEvent(new CustomEvent('payment-total-changed'));
         if (amountInput && count > 0 && !amountInput.dataset.manual) {
             amountInput.value = total;
         }
@@ -743,6 +857,7 @@ function setupAdminSpaNavigation() {
             setupViewSwitcher();
             setupCustomDropdowns();
             setupPostFormUploaders();
+            setupQrisDecoder();
 
             // Execute any inline scripts inside the new main container
             newMain.querySelectorAll('script').forEach((oldScript) => {
@@ -773,6 +888,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCustomDropdowns();
     setupAnnouncementPopup();
     setupPostFormUploaders();
+    setupQrisDecoder();
+    setupQrisPayment();
     setupAdminSpaNavigation();
 });
 

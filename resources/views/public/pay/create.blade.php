@@ -161,46 +161,110 @@
                                     <h2 id="langkah-3" class="font-bold text-base text-slate-900">Transfer ke rekening pengurus</h2>
                                 </div>
 
-                                <div class="rounded-2xl bg-slate-900 text-white p-4 mb-4 flex flex-wrap items-end justify-between gap-2">
+                                @php $baseTotal = $type->isMonthly() ? 0 : $type->amount; @endphp
+                                <div class="rounded-2xl bg-slate-900 text-white p-4 mb-4 flex flex-wrap items-end justify-between gap-2"
+                                     data-qris-payment data-unique-code="{{ $household->uniqueCode() }}">
                                     <div>
                                         <span class="block text-xs text-slate-300">Jumlah yang ditransfer</span>
-                                        <strong id="selected-months-total" class="block text-2xl font-extrabold tabular-nums">{{ rupiah($type->isMonthly() ? 0 : $type->amount) }}</strong>
+                                        <strong id="transfer-total" class="block text-2xl font-extrabold tabular-nums">{{ rupiah($baseTotal) }}</strong>
                                     </div>
-                                    @if ($type->isMonthly())
-                                        <span class="text-xs text-slate-300"><span id="selected-months-count">0</span> bulan × {{ rupiah($type->amount) }}</span>
-                                    @endif
+                                    <span class="text-xs text-slate-300 tabular-nums">
+                                        Iuran <span id="selected-months-total" data-total="{{ $baseTotal }}">{{ rupiah($baseTotal) }}</span>
+                                        @if ($type->isMonthly())
+                                            (<span id="selected-months-count">0</span> bulan × {{ rupiah($type->amount) }})
+                                        @endif
+                                        <span id="transfer-unique-note" class="hidden">+ kode unik <strong class="text-white">{{ $household->uniqueCode() }}</strong></span>
+                                    </span>
                                 </div>
 
+                                @php $selectedAccount = (string) old('bank_account_id', $accounts->count() === 1 ? $accounts->first()->id : ''); @endphp
                                 <p class="field-label">Rekening tujuan yang Anda pakai</p>
-                                <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2">
                                     @foreach ($accounts as $account)
-                                        <label class="block p-4 rounded-xl border border-slate-200 bg-white cursor-pointer transition-all hover:border-slate-300 has-[:checked]:border-daun has-[:checked]:bg-emerald-50/60">
-                                            <span class="flex items-start gap-3">
-                                                <input type="radio" name="bank_account_id" value="{{ $account->id }}" class="mt-1 size-5 accent-daun shrink-0"
-                                                       @checked((string) old('bank_account_id', $accounts->count() === 1 ? $account->id : '') === (string) $account->id)>
-                                                <span class="min-w-0 flex-1">
-                                                    <span class="block font-bold text-slate-900">{{ $account->bank_name }}</span>
-                                                    @if ($account->account_number)
-                                                        <span class="flex items-center gap-2 mt-1">
-                                                            <span class="font-mono text-lg font-bold tracking-wide text-slate-900 break-all">{{ $account->account_number }}</span>
-                                                            <button type="button" class="btn btn-sm btn-quiet text-xs shrink-0" data-copy="{{ preg_replace('/\s+/', '', $account->account_number) }}">Salin</button>
-                                                        </span>
+                                        <label class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-white cursor-pointer transition-all hover:border-slate-300 has-[:checked]:border-daun has-[:checked]:bg-emerald-50/60">
+                                            <input type="radio" name="bank_account_id" value="{{ $account->id }}" class="size-4 accent-daun shrink-0"
+                                                   @if ($account->hasDynamicQris()) data-qris-payload="{{ $account->qris_payload }}" @endif
+                                                   @checked($selectedAccount === (string) $account->id)>
+                                            <span class="min-w-0 flex-1">
+                                                <span class="flex items-center gap-1.5 text-sm min-w-0">
+                                                    <span class="font-bold text-slate-900 shrink-0">{{ $account->bank_name }}</span>
+                                                    @if ($account->qrisUrl() || $account->hasDynamicQris())
+                                                        <span class="shrink-0 px-1.5 rounded bg-slate-900 text-white text-[10px] font-bold leading-4">QRIS</span>
                                                     @endif
                                                     @if ($account->account_name)
-                                                        <span class="block text-sm text-slate-600 mt-0.5">a.n. {{ $account->account_name }}</span>
-                                                    @endif
-                                                    @if ($account->qrisUrl())
-                                                        <a href="{{ $account->qrisUrl() }}" target="_blank" rel="noopener" class="block mt-3">
-                                                            <img src="{{ $account->qrisUrl() }}" alt="QRIS {{ $account->bank_name }}" class="w-full max-w-56 rounded-lg border border-slate-200 bg-white" loading="lazy">
-                                                            <span class="block text-xs font-semibold mt-1">Buka QRIS ukuran penuh</span>
-                                                        </a>
+                                                        <span class="min-w-0 text-xs text-slate-500 truncate">· a.n. {{ $account->account_name }}</span>
                                                     @endif
                                                 </span>
+                                                @if ($account->account_number)
+                                                    <span class="block font-mono text-sm font-bold text-slate-900 break-all">{{ $account->account_number }}</span>
+                                                @endif
                                             </span>
+                                            @if ($account->account_number)
+                                                <button type="button" class="shrink-0 min-h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50" data-copy="{{ preg_replace('/\s+/', '', $account->account_number) }}">Salin</button>
+                                            @endif
                                         </label>
                                     @endforeach
                                 </div>
                                 @error('bank_account_id') <span class="field-error">{{ $message }}</span> @enderror
+
+                                @foreach ($accounts->filter(fn ($a) => $a->qrisUrl() || $a->hasDynamicQris()) as $account)
+                                    @php $dynamic = $account->hasDynamicQris(); @endphp
+                                    <div data-qris-panel data-account-id="{{ $account->id }}"
+                                         class="{{ $selectedAccount === (string) $account->id ? '' : 'hidden' }} mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                                        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+                                            <div class="w-full max-w-56 sm:w-56 shrink-0">
+                                                @if ($dynamic)
+                                                    <div class="hidden" data-qris-dynamic data-account-id="{{ $account->id }}">
+                                                        <canvas class="block w-full h-auto aspect-square rounded-xl border border-slate-200 bg-white p-2" aria-label="QRIS dengan nominal otomatis"></canvas>
+                                                    </div>
+                                                    <div data-qris-hint data-account-id="{{ $account->id }}">
+                                                        <div class="sm:aspect-square rounded-xl border-2 border-dashed border-slate-300 bg-white flex sm:flex-col items-center sm:justify-center gap-3 sm:gap-2 p-3 sm:p-5 text-left sm:text-center">
+                                                            <svg class="size-7 sm:size-8 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                <rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/>
+                                                                <path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/>
+                                                            </svg>
+                                                            <span>
+                                                                <span class="block text-sm font-bold text-slate-700">Centang bulan dulu</span>
+                                                                <span class="block text-xs text-slate-500 mt-0.5">QRIS berisi nominal akan muncul di sini.</span>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                @else
+                                                    <a href="{{ $account->qrisUrl() }}" target="_blank" rel="noopener" class="block">
+                                                        <img src="{{ $account->qrisUrl() }}" alt="QRIS {{ $account->bank_name }}" class="w-full rounded-xl border border-slate-200 bg-white" loading="lazy">
+                                                    </a>
+                                                @endif
+                                            </div>
+
+                                            <div class="{{ $dynamic && $baseTotal === 0 ? 'hidden' : '' }} flex-1 min-w-0 w-full space-y-3 text-center sm:text-left" @if ($dynamic) data-qris-info @endif>
+                                                <div>
+                                                    <span class="block text-xs font-bold uppercase tracking-wider text-daun">Bayar pakai QRIS</span>
+                                                    <strong class="block text-2xl font-extrabold tabular-nums text-slate-900" data-transfer-amount>{{ rupiah($baseTotal) }}</strong>
+                                                    <span class="block text-xs text-slate-500 mt-0.5">
+                                                        @if ($dynamic)
+                                                            Nominal otomatis terisi saat dipindai. Jangan diubah, angka paling belakang adalah kode unik rumah Anda.
+                                                        @else
+                                                            Ketik nominal persis seperti di atas saat membayar.
+                                                        @endif
+                                                    </span>
+                                                </div>
+                                                <div class="flex flex-wrap gap-2 *:flex-1 sm:*:flex-none">
+                                                    @if ($dynamic)
+                                                        <a data-qris-download hidden class="btn btn-sm btn-primary text-xs no-underline justify-center">Simpan gambar QRIS</a>
+                                                    @else
+                                                        <a href="{{ $account->qrisUrl() }}" download class="btn btn-sm btn-primary text-xs no-underline justify-center">Simpan gambar QRIS</a>
+                                                    @endif
+                                                </div>
+                                                <p class="sm:hidden text-xs text-slate-500">Simpan gambar QRIS, lalu buka m-banking / e-wallet → <strong>Scan QRIS</strong> → pilih dari galeri.</p>
+                                                <ol class="hidden sm:block text-sm text-slate-600 space-y-1 text-left max-w-sm mx-auto sm:mx-0 list-decimal pl-5">
+                                                    <li>Buka m-banking atau e-wallet, pilih <strong>Scan QRIS</strong>.</li>
+                                                    <li>Kalau membuka halaman ini dari HP, simpan gambar QRIS lalu pilih dari galeri.</li>
+                                                    <li>Setelah berhasil, screenshot bukti bayarnya untuk dikirim di langkah 4.</li>
+                                                </ol>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
 
                                 @if (setting('payment_info'))
                                     <p class="mt-4 text-sm text-slate-600 whitespace-pre-line bg-slate-50 border border-slate-200 rounded-xl p-3">{{ setting('payment_info') }}</p>

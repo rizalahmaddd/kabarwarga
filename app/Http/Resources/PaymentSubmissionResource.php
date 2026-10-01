@@ -29,6 +29,8 @@ class PaymentSubmissionResource extends JsonResource
             'is_partial' => $this->isPartial(),
             'unit_amount' => $this->unit_amount,
             'total' => $this->total(),
+            'unique_code' => $this->unique_code,
+            'transfer_total' => $this->transferTotal(),
             'accepted_total' => $this->acceptedTotal(),
             'payer_name' => $this->payer_name,
             'phone' => $this->when($isAdmin, $this->phone),

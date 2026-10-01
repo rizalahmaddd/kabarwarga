@@ -8,11 +8,13 @@ use App\Models\Household;
 use App\Models\Payment;
 use App\Models\PaymentSubmission;
 use App\Models\User;
+use App\Support\Qris;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
+use Tests\Unit\QrisTest;
 
 class OnlinePaymentTest extends TestCase
 {
@@ -246,5 +248,49 @@ class OnlinePaymentTest extends TestCase
         $this->delete("/admin/rekening/{$qris->id}");
         Storage::disk('public')->assertMissing($path);
         $this->assertSame(1, BankAccount::count());
+    }
+
+    public function test_qris_account_adds_household_unique_code(): void
+    {
+        $qris = BankAccount::create(['bank_name' => 'QRIS', 'qris_payload' => QrisTest::staticPayload()]);
+
+        $this->get("/bayar?rumah={$this->house->id}&jenis={$this->monthly->id}&tahun=2026")
+            ->assertOk()
+            ->assertSee('data-unique-code="'.$this->house->uniqueCode().'"', false)
+            ->assertSee('data-qris-dynamic', false);
+
+        $this->submit(['bank_account_id' => $qris->id])->assertRedirect();
+        $submission = PaymentSubmission::first();
+
+        $this->assertSame($this->house->uniqueCode(), $submission->unique_code);
+        $this->assertSame(50000 + $this->house->uniqueCode(), $submission->transferTotal());
+        $this->get("/bayar/cek/{$submission->code}")->assertSee('termasuk kode unik');
+    }
+
+    public function test_plain_bank_account_has_no_unique_code(): void
+    {
+        $this->submit()->assertRedirect();
+
+        $this->assertSame(0, PaymentSubmission::first()->unique_code);
+    }
+
+    public function test_admin_saves_only_static_qris_payload(): void
+    {
+        $this->actingAs(User::create(['name' => 'Bendahara', 'email' => 'b@example.com', 'password' => 'rahasia123']));
+        $static = QrisTest::staticPayload();
+
+        $this->post('/admin/rekening', ['bank_name' => 'QRIS', 'qris_payload' => 'bukan-qris', 'is_active' => 1])->assertSessionHasErrors('qris_payload');
+        $this->post('/admin/rekening', ['bank_name' => 'QRIS', 'qris_payload' => Qris::withAmount($static, 1000), 'is_active' => 1])->assertSessionHasErrors('qris_payload');
+
+        $this->post('/admin/rekening', ['bank_name' => 'QRIS', 'qris' => UploadedFile::fake()->image('qris.png'), 'qris_payload' => $static, 'is_active' => 1])
+            ->assertRedirect('/admin/rekening');
+        $qris = BankAccount::where('bank_name', 'QRIS')->first();
+        $this->assertTrue($qris->hasDynamicQris());
+
+        $this->put("/admin/rekening/{$qris->id}", ['bank_name' => 'QRIS', 'qris' => UploadedFile::fake()->image('baru.png'), 'is_active' => 1]);
+        $this->assertNull($qris->fresh()->qris_payload);
+
+        $this->put("/admin/rekening/{$qris->id}", ['bank_name' => 'QRIS', 'account_number' => '08123', 'qris_payload' => $static, 'remove_qris' => 1, 'is_active' => 1]);
+        $this->assertNull($qris->fresh()->qris_payload);
     }
 }
