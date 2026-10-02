@@ -22,10 +22,14 @@ class HouseholdResource extends JsonResource
             'head_name' => $this->head_name,
             'label' => $this->label(),
             'is_active' => $this->is_active,
+            'occupancy_status' => $this->occupancy_status ?? 'pemilik',
+            'occupancy_label' => $this->occupancyLabel(),
             'unique_code' => $this->uniqueCode(),
             'phone' => $this->when($isAdmin, $this->phone),
             'note' => $this->when($isAdmin, $this->note),
+            'kk_number' => $this->when($isAdmin, $this->kk_number),
             'payments_count' => $this->whenCounted('payments'),
+            'members_count' => $this->whenCounted('members'),
         ];
     }
 }

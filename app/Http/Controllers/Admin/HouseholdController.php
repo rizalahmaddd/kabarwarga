@@ -11,7 +11,7 @@ class HouseholdController extends Controller
 {
     public function index()
     {
-        $households = Household::withCount('payments')->ordered()->get();
+        $households = Household::withCount(['payments', 'members'])->ordered()->get();
 
         return view('admin.households.index', compact('households'));
     }

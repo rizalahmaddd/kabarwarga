@@ -172,6 +172,7 @@ class DemoSeeder extends Seeder
         foreach (self::HOUSEHOLDS as $number => [$name, $note]) {
             $household = Household::firstOrCreate(['number' => $number], [
                 'head_name' => $name,
+                'occupancy_status' => str_contains(strtolower($note ?? ''), 'kontrak') ? 'kontrak' : 'pemilik',
                 'phone' => mt_rand(1, 100) <= 85 ? $this->phone() : null,
                 'is_active' => ! in_array($number, self::INACTIVE, true),
                 'note' => $note,

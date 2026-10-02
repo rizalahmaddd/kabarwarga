@@ -40,6 +40,11 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
 
     Route::resource('kabar', Admin\PostController::class)->except('show')->parameters(['kabar' => 'post'])->names('posts');
     Route::resource('rumah', Admin\HouseholdController::class)->except('show')->parameters(['rumah' => 'household'])->names('households');
+    Route::get('/rumah/{household}/penghuni', [Admin\HouseholdMemberController::class, 'index'])->name('households.members.index');
+    Route::post('/rumah/{household}/penghuni', [Admin\HouseholdMemberController::class, 'store'])->name('households.members.store');
+    Route::put('/rumah/{household}/penghuni/{member}', [Admin\HouseholdMemberController::class, 'update'])->name('households.members.update');
+    Route::delete('/rumah/{household}/penghuni/{member}', [Admin\HouseholdMemberController::class, 'destroy'])->name('households.members.destroy');
+    Route::post('/rumah/{household}/penghuni/sync', [Admin\HouseholdMemberController::class, 'sync'])->name('households.members.sync');
     Route::resource('jenis-iuran', Admin\DuesTypeController::class)->except('show')->parameters(['jenis-iuran' => 'duesType'])->names('dues-types');
     Route::resource('pengeluaran', Admin\ExpenseController::class)->except('show')->parameters(['pengeluaran' => 'expense'])->names('expenses');
 

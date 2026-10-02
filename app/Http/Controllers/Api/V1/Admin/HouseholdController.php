@@ -14,7 +14,7 @@ class HouseholdController extends Controller
 {
     public function index(): AnonymousResourceCollection
     {
-        return HouseholdResource::collection(Household::withCount('payments')->ordered()->get());
+        return HouseholdResource::collection(Household::withCount(['payments', 'members'])->ordered()->get());
     }
 
     public function store(HouseholdRequest $request): JsonResponse
@@ -29,7 +29,7 @@ class HouseholdController extends Controller
 
     public function show(Household $household): HouseholdResource
     {
-        return new HouseholdResource($household->loadCount('payments'));
+        return new HouseholdResource($household->loadCount(['payments', 'members']));
     }
 
     public function update(HouseholdRequest $request, Household $household): HouseholdResource

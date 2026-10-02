@@ -41,13 +41,21 @@
         <div class="sheet divide-y divide-slate-100 shadow-xs">
             @foreach ($households as $household)
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-slate-50 transition-colors"
-                     data-household-row data-search="{{ strtolower($household->number.' '.$household->head_name) }}">
+                     data-household-row data-search="{{ strtolower($household->number.' '.$household->head_name.' '.($household->occupancy_status ?? 'pemilik')) }}">
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-2">
                             <span class="inline-flex items-center justify-center font-extrabold text-xs px-2.5 py-0.5 rounded-lg bg-slate-900 text-white">
                                 {{ $household->number }}
                             </span>
                             <span class="font-bold text-sm text-slate-800">{{ $household->head_name }}</span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ ($household->occupancy_status ?? 'pemilik') === 'kontrak' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800' }}">
+                                {{ ($household->occupancy_status ?? 'pemilik') === 'kontrak' ? 'Kontrak' : 'Pemilik' }}
+                            </span>
+                            @if ($household->kk_number)
+                                <span class="hidden sm:inline-block text-[11px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded" title="Nomor Kartu Keluarga">
+                                    KK: {{ $household->kk_number }}
+                                </span>
+                            @endif
                             @unless ($household->is_active)
                                 <span class="text-[10px] uppercase font-bold text-terakota bg-terakota-soft px-1.5 py-0.5 rounded">
                                     Nonaktif
@@ -56,6 +64,13 @@
                         </div>
 
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1.5">
+                            <a href="{{ route('admin.households.members.index', $household) }}" class="inline-flex items-center gap-1 font-semibold {{ $household->members_count ? 'text-indigo-600 hover:underline' : 'text-slate-400 hover:text-slate-600 hover:underline' }}">
+                                <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                                {{ $household->members_count ? $household->members_count . ' penghuni' : 'Belum didata' }}
+                            </a>
+                            <span>·</span>
                             @if ($household->phone)
                                 @php
                                     $cleanPhone = preg_replace('/[^0-9]/', '', $household->phone);
@@ -81,6 +96,9 @@
                     </div>
 
                     <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <a href="{{ route('admin.households.members.index', $household) }}" class="btn btn-sm btn-quiet text-xs font-bold text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 border border-indigo-200/60">
+                            Penghuni ({{ $household->members_count }})
+                        </a>
                         <a href="{{ route('admin.home', ['rumah' => $household->id]) }}" class="btn btn-sm btn-primary text-xs font-bold">
                             + Catat Bayar
                         </a>

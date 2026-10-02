@@ -1027,6 +1027,8 @@ components:
             properties:
               number: { type: string, maxLength: 30, description: Nomor rumah (unik)., example: A-7 }
               head_name: { type: string, maxLength: 100 }
+              occupancy_status: { type: string, enum: [pemilik, kontrak], example: pemilik }
+              kk_number: { type: string, maxLength: 30, example: '3201123456780001' }
               phone: { type: string, maxLength: 30 }
               note: { type: string, maxLength: 1000 }
               is_active: { type: boolean }
@@ -1279,10 +1281,14 @@ components:
         head_name: { type: string, example: Pak Budi }
         label: { type: string, example: A-7 · Pak Budi }
         is_active: { type: boolean }
+        occupancy_status: { type: string, enum: [pemilik, kontrak], example: pemilik }
+        occupancy_label: { type: string, example: Pemilik }
         unique_code: { type: integer, example: 7, description: Angka unik rumah (1–999) yang ditambahkan ke nominal QRIS dinamis. }
         phone: { type: ['string', 'null'], description: Khusus pengurus. }
         note: { type: ['string', 'null'], description: Khusus pengurus. }
+        kk_number: { type: ['string', 'null'], description: Khusus pengurus. }
         payments_count: { type: integer, description: Khusus daftar/detail pengurus. }
+        members_count: { type: integer, description: Khusus daftar/detail pengurus. }
     DuesType:
       type: object
       properties:

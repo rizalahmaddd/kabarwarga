@@ -31,13 +31,27 @@
                     </div>
                 </div>
 
-                <div>
-                    <label for="phone" class="field-label">Nomor HP / WhatsApp <span class="font-normal text-slate-400">(Hanya pengurus yang bisa lihat)</span></label>
-                    <div class="relative">
-                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm pointer-events-none">
-                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                        </span>
-                        <input id="phone" name="phone" type="tel" maxlength="30" class="input pl-10" value="{{ old('phone', $household->phone) }}" placeholder="Mis. 081234567890">
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label for="occupancy_status" class="field-label">Status Warga / Hunian</label>
+                        <select id="occupancy_status" name="occupancy_status" class="input font-semibold text-sm">
+                            <option value="pemilik" @selected(old('occupancy_status', $household->occupancy_status ?? 'pemilik') === 'pemilik')>Pemilik Rumah</option>
+                            <option value="kontrak" @selected(old('occupancy_status', $household->occupancy_status) === 'kontrak')>Kontrak / Sewa</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="phone" class="field-label">Nomor HP / WA <span class="font-normal text-slate-400">(Pengurus)</span></label>
+                        <div class="relative">
+                            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm pointer-events-none">
+                                <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                            </span>
+                            <input id="phone" name="phone" type="tel" maxlength="30" class="input pl-10" value="{{ old('phone', $household->phone) }}" placeholder="Mis. 081234567890">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="kk_number" class="field-label">Nomor KK (Opsional)</label>
+                        <input id="kk_number" name="kk_number" type="text" maxlength="30" class="input font-mono" value="{{ old('kk_number', $household->kk_number) }}" placeholder="16 digit nomor KK" @error('kk_number') aria-invalid="true" @enderror>
+                        @error('kk_number') <span class="field-error">{{ $message }}</span> @enderror
                     </div>
                 </div>
 
@@ -79,6 +93,28 @@
         </div>
 
         <div class="lg:col-span-4 space-y-4">
+            @if ($household->exists)
+                <div class="p-5 rounded-2xl bg-indigo-50/80 border border-indigo-200/80 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-xs text-indigo-950 flex items-center gap-1.5 uppercase tracking-wider">
+                            <svg class="size-4 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            Penghuni Rumah
+                        </span>
+                        <span class="px-2 py-0.5 text-xs font-bold bg-indigo-200/60 text-indigo-900 rounded-full">
+                            {{ $household->members()->count() }} Jiwa
+                        </span>
+                    </div>
+                    <p class="text-xs text-indigo-900/80 leading-relaxed">
+                        Data anggota keluarga dan penghuni rumah ini dapat diinput manual atau di-scan otomatis via Kartu Keluarga (OCR).
+                    </p>
+                    <a href="{{ route('admin.households.members.index', $household) }}" class="btn btn-sm btn-primary w-full justify-center text-xs font-bold">
+                        Buka Data Penghuni & OCR KK →
+                    </a>
+                </div>
+            @endif
+
             <div class="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200/60 space-y-2">
                 <span class="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
                     <svg class="size-4 text-daun shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

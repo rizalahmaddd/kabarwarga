@@ -1,3 +1,5 @@
+import { showConfirm, showAlert, showToast } from './dialog';
+
 // Admin Mobile Bottom Sheet Drawer
 function setupAdminDrawer() {
     const drawer = document.getElementById('admin-drawer');
@@ -54,17 +56,50 @@ document.addEventListener('click', (event) => {
 });
 
 // Form confirm & busy states
-document.addEventListener('submit', (event) => {
+document.addEventListener('submit', async (event) => {
     const form = event.target;
 
-    if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+    if (form.dataset.confirm && !form.dataset.confirmed) {
         event.preventDefault();
+        event.stopImmediatePropagation();
+
+        const message = form.dataset.confirm;
+        const submitter = event.submitter;
+        const isDelete = form.querySelector('input[name="_method"][value="DELETE"]')
+            || (form.action && form.action.includes('/destroy'))
+            || /hapus|cabut|batalkan|tolak/i.test(message);
+
+        const confirmed = await showConfirm({
+            title: isDelete ? 'Konfirmasi Penghapusan' : 'Konfirmasi Tindakan',
+            message: message,
+            confirmText: isDelete ? 'Ya, Lanjutkan' : 'Ya, Lanjutkan',
+            cancelText: 'Batal',
+            type: isDelete ? 'danger' : 'primary',
+        });
+
+        if (confirmed) {
+            form.dataset.confirmed = 'true';
+            if (submitter && submitter.name) {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = submitter.name;
+                hidden.value = submitter.value;
+                form.appendChild(hidden);
+            }
+            form.requestSubmit(submitter);
+            delete form.dataset.confirmed;
+        }
+        return;
+    }
+
+    if (event.defaultPrevented) {
         return;
     }
 
     const button = event.submitter;
     if (button && button.dataset.busy) {
         setTimeout(() => {
+            if (event.defaultPrevented) return;
             button.disabled = true;
             button.dataset.originalText = button.innerHTML;
             button.innerHTML = `
@@ -532,8 +567,13 @@ document.addEventListener('click', async (event) => {
     event.preventDefault();
     try {
         await navigator.clipboard.writeText(button.dataset.copy);
+        showToast({ message: 'Nomor rekening berhasil disalin! ✓', type: 'success' });
     } catch (_) {
-        window.prompt('Salin nomor ini:', button.dataset.copy);
+        await showAlert({
+            title: 'Salin Teks',
+            message: `Silakan salin teks berikut:\n\n${button.dataset.copy}`,
+            type: 'info',
+        });
         return;
     }
     const original = button.textContent;
@@ -858,6 +898,7 @@ function setupAdminSpaNavigation() {
             setupCustomDropdowns();
             setupPostFormUploaders();
             setupQrisDecoder();
+            initHouseholdMembers();
 
             // Execute any inline scripts inside the new main container
             newMain.querySelectorAll('script').forEach((oldScript) => {
@@ -872,6 +913,13 @@ function setupAdminSpaNavigation() {
         } finally {
             isNavigating = false;
         }
+    }
+}
+
+async function initHouseholdMembers() {
+    if (document.getElementById('ocr-review-container')) {
+        const { setupHouseholdMembers } = await import('./household-members');
+        setupHouseholdMembers();
     }
 }
 
@@ -891,5 +939,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupQrisDecoder();
     setupQrisPayment();
     setupAdminSpaNavigation();
+    initHouseholdMembers();
 });
+
 
