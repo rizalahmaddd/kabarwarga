@@ -1,5 +1,52 @@
 <x-layouts.public :title="'Kuitansi ' . $payment->receiptNumber() . ' · ' . $payment->household->head_name">
-    <div class="max-w-2xl mx-auto">
+    {{-- Print-only CSS rules to strictly hide any headers, footers, and navigations --}}
+    <style>
+        @media print {
+            @page {
+                margin: 0.8cm;
+                size: auto;
+            }
+            html, body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            header, footer, nav, [role="navigation"], .print\:hidden {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            main {
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            .receipt-container {
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .receipt-card {
+                background: #ffffff !important;
+                border: 2px solid #0f172a !important;
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                padding: 1.5rem !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+
+    <div class="receipt-container max-w-2xl mx-auto">
         {{-- Navigation & Action Bar (Hidden on print) --}}
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
             <a href="{{ url()->previous(route('dues.index')) }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-daun transition-colors">
@@ -35,26 +82,19 @@
         </div>
 
         {{-- Receipt Printable Card --}}
-        <div class="sheet p-6 sm:p-10 bg-[#fffbf2] border-2 border-[#d9cfbb] shadow-sm relative overflow-hidden print:p-6 print:border-black print:shadow-none print:m-0 print:w-full">
-            {{-- Rubber Stamp "LUNAS" --}}
-            <div class="absolute right-6 top-28 sm:top-24 rotate-[-12deg] pointer-events-none select-none opacity-85 print:opacity-100">
-                <div class="border-4 border-dashed border-emerald-700 text-emerald-800 px-4 py-2 rounded-xl text-center shadow-xs">
-                    <div class="text-xl sm:text-2xl font-black tracking-widest uppercase font-serif">✓ LUNAS</div>
-                    <div class="text-[10px] font-bold text-emerald-700 tracking-wider uppercase mt-0.5">
-                        {{ $payment->paid_on->translatedFormat('d M Y') }}
-                    </div>
-                </div>
-            </div>
-
+        <div class="receipt-card sheet p-6 sm:p-10 bg-[#fffbf2] border-2 border-[#d9cfbb] shadow-sm relative overflow-hidden">
             {{-- Kop Surat / Header Kuitansi --}}
-            <div class="border-b-2 border-slate-900 pb-5 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="border-b-2 border-slate-900 pb-5 mb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div>
                     <h2 class="text-xl sm:text-2xl font-black text-slate-900 font-serif tracking-tight">
                         {{ setting('site_name') }}
                     </h2>
                     <p class="text-xs text-slate-600 font-medium mt-0.5">Papan Informasi & Pengelolaan Kas Warga RT/RW</p>
+                    @if (setting('address'))
+                        <p class="text-[11px] text-slate-500 mt-0.5">{{ setting('address') }}</p>
+                    @endif
                 </div>
-                <div class="sm:text-right">
+                <div class="sm:text-right shrink-0">
                     <span class="inline-block text-[11px] font-extrabold uppercase tracking-wider text-daun bg-daun-soft px-2.5 py-1 rounded-md print:border print:border-slate-800">
                         Kuitansi Resmi
                     </span>
@@ -62,19 +102,30 @@
                 </div>
             </div>
 
-            <div class="text-center my-4">
-                <h1 class="text-lg sm:text-xl font-bold uppercase tracking-wider text-slate-900 font-serif underline underline-offset-4 decoration-2">
-                    Tanda Terima Pembayaran Iuran
-                </h1>
+            {{-- Title & Stamp Bar (Flex container ensures ZERO text collision) --}}
+            <div class="flex items-center justify-between gap-4 my-4 pb-1">
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-base sm:text-lg font-bold uppercase tracking-wider text-slate-900 font-serif underline underline-offset-4 decoration-2">
+                        Tanda Terima Pembayaran Iuran
+                    </h1>
+                </div>
+                <div class="shrink-0 rotate-[-6deg] pointer-events-none select-none">
+                    <div class="border-2 sm:border-3 border-dashed border-emerald-700 text-emerald-800 px-3.5 py-1 rounded-xl text-center bg-emerald-50/70 shadow-2xs print:border-emerald-800 print:bg-transparent">
+                        <div class="text-base sm:text-lg font-black tracking-widest uppercase font-serif leading-none">✓ LUNAS</div>
+                        <div class="text-[9px] font-bold text-emerald-700 tracking-wider uppercase mt-0.5">
+                            {{ $payment->paid_on->translatedFormat('d M Y') }}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {{-- Body Details --}}
-            <dl class="space-y-3.5 text-sm my-6 divide-y divide-slate-200/80">
+            <dl class="space-y-3.5 text-sm my-5 divide-y divide-slate-200/80">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 pt-2">
                     <dt class="text-slate-500 font-medium">Telah Diterima Dari</dt>
                     <dd class="sm:col-span-2 font-bold text-slate-900 flex items-center gap-2">
                         <span>{{ $payment->household->head_name }}</span>
-                        <span class="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-900 text-white">
+                        <span class="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-900 text-white print:border print:border-black">
                             Rumah {{ $payment->household->number }}
                         </span>
                     </dd>
@@ -111,13 +162,13 @@
                     </div>
                 @endif
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 pt-3.5 bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
-                    <dt class="text-emerald-900 font-bold self-center">Jumlah Pembayaran</dt>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 pt-3.5 bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200 print:bg-slate-50 print:border-slate-300">
+                    <dt class="text-emerald-900 font-bold self-center print:text-slate-900">Jumlah Pembayaran</dt>
                     <dd class="sm:col-span-2">
-                        <span class="font-extrabold text-xl sm:text-2xl text-emerald-900 tabular-nums">
+                        <span class="font-extrabold text-xl sm:text-2xl text-emerald-900 tabular-nums print:text-slate-900">
                             {{ rupiah($payment->amount) }}
                         </span>
-                        <p class="text-xs font-semibold text-emerald-800 italic mt-0.5">
+                        <p class="text-xs font-semibold text-emerald-800 italic mt-0.5 print:text-slate-700">
                             # {{ ucwords(terbilang($payment->amount)) }} Rupiah #
                         </p>
                     </dd>
@@ -125,7 +176,7 @@
             </dl>
 
             {{-- Signatures / Verification --}}
-            <div class="mt-10 pt-6 border-t border-dashed border-slate-300 flex flex-col sm:flex-row items-end justify-between gap-6">
+            <div class="mt-8 pt-5 border-t border-dashed border-slate-300 flex flex-col sm:flex-row items-end justify-between gap-6">
                 <div class="text-[11px] text-slate-500 max-w-xs">
                     <p class="font-semibold text-slate-700">Verifikasi Sistem</p>
                     <p class="mt-0.5">Dokumen ini diterbitkan secara otomatis dan sah sebagai bukti setoran iuran warga {{ setting('site_name') }}.</p>
@@ -135,7 +186,7 @@
                 <div class="text-center sm:text-right w-full sm:w-auto">
                     <p class="text-xs text-slate-500">{{ setting('site_name') }}, {{ $payment->paid_on->translatedFormat('d F Y') }}</p>
                     <p class="text-xs font-bold text-slate-700 mt-1">Dicatat oleh:</p>
-                    <div class="h-12 flex items-center justify-center sm:justify-end">
+                    <div class="h-10 flex items-center justify-center sm:justify-end">
                         <span class="text-xs italic text-slate-400 font-serif">[ Tanda Terima Digital ]</span>
                     </div>
                     <p class="font-bold text-sm text-slate-900 underline underline-offset-2">

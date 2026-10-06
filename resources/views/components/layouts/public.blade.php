@@ -13,11 +13,11 @@
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="min-h-full flex flex-col bg-slate-50 text-slate-900 pb-20 lg:pb-0 antialiased selection:bg-daun-soft selection:text-daun-dark">
-    <a href="#isi" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 btn btn-primary z-50 shadow-lg">Langsung ke isi</a>
+<body class="min-h-full flex flex-col bg-slate-50 text-slate-900 pb-20 lg:pb-0 antialiased selection:bg-daun-soft selection:text-daun-dark print:bg-white print:pb-0 print:text-black">
+    <a href="#isi" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 btn btn-primary z-50 shadow-lg print:hidden">Langsung ke isi</a>
 
     {{-- Top App Bar --}}
-    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-shadow">
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-shadow print:hidden">
         <div class="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between gap-4">
             <a href="{{ route('home') }}" class="flex items-center gap-2.5 no-underline group min-w-0">
                 <div class="size-10 rounded-xl bg-gradient-to-br from-daun to-emerald-700 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform shrink-0">
@@ -69,13 +69,13 @@
     </header>
 
     {{-- Main Content --}}
-    <main id="isi" class="flex-1 mx-auto w-full max-w-5xl px-4 py-5 sm:py-8 focus:outline-none">
+    <main id="isi" class="flex-1 mx-auto w-full max-w-5xl px-4 py-5 sm:py-8 focus:outline-none print:p-0 print:m-0 print:max-w-none">
         <x-flash />
         {{ $slot }}
     </main>
 
     {{-- Desktop & Tablet Footer --}}
-    <footer class="mt-auto border-t border-slate-200/80 bg-white">
+    <footer class="mt-auto border-t border-slate-200/80 bg-white print:hidden">
         <div class="mx-auto max-w-5xl px-4 py-8 text-sm text-slate-500">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div class="space-y-1">
@@ -104,7 +104,7 @@
     </footer>
 
     {{-- Mobile Bottom Navigation Bar (Native App Style) --}}
-    <nav aria-label="Navigasi bawah mobile" class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-lg px-2 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <nav aria-label="Navigasi bawah mobile" class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-lg px-2 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] print:hidden">
         <div class="grid grid-cols-5 items-center justify-around">
             {{-- Tab 1: Beranda --}}
             @php $isHome = request()->routeIs('home'); @endphp
