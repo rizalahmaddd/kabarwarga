@@ -1,5 +1,28 @@
 <x-layouts.public title="Kas Warga">
-    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    @php
+        $siteName = setting('site_name');
+        $topExpenses = $expenses->take(3);
+        $expenseLines = '';
+        if ($topExpenses->isNotEmpty()) {
+            $expenseLines .= "\n📋 *Pengeluaran Terakhir:*\n";
+            foreach ($topExpenses as $exp) {
+                $expenseLines .= "• " . $exp->description . " (" . rupiah($exp->amount) . ")\n";
+            }
+        }
+        $cashbookUrl = route('dues.cashbook', ['tahun' => $year]);
+        $waSummaryText = "📢 *LAPORAN KAS RT TAHUN {$year}*\n"
+            . "*{$siteName}*\n"
+            . "───────────────────────────\n"
+            . "💰 *Saldo Awal:* " . rupiah($book['opening']) . "\n"
+            . "📥 *Total Pemasukan:* " . rupiah($book['total_in']) . "\n"
+            . "📤 *Total Pengeluaran:* " . rupiah($book['total_out']) . "\n"
+            . "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            . "💵 *Sisa Saldo Kas:* " . rupiah($book['closing']) . "\n"
+            . $expenseLines . "\n"
+            . "🔗 *Buku kas transparan lengkap:* \n{$cashbookUrl}";
+    @endphp
+
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <div class="flex items-center gap-2 text-xs font-bold text-daun uppercase tracking-wider mb-1">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -14,19 +37,39 @@
             </p>
         </div>
 
-        @if (count($years) > 1)
-            @php
-                $yearOptions = [];
-                foreach ($years as $y) {
-                    $yearOptions[$y] = 'Tahun ' . $y;
-                }
-            @endphp
-            <form method="GET" class="shrink-0 self-start sm:self-center w-full sm:w-44">
-                <label for="tahun" class="sr-only">Pilih Tahun</label>
-                <x-dropdown name="tahun" :value="$year" :options="$yearOptions" autosubmit />
-                <noscript><button class="btn btn-quiet text-xs font-bold mt-1">Pilih</button></noscript>
-            </form>
-        @endif
+        <div class="flex flex-wrap items-center gap-2 self-start md:self-center">
+            <button type="button" id="btn-copy-wa" data-text="{{ $waSummaryText }}"
+                    class="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs cursor-pointer">
+                <svg class="size-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                </svg>
+                <span id="btn-copy-label">Salin Format WA</span>
+            </button>
+
+            <a href="{{ route('dues.cashbook.export', ['tahun' => $year]) }}"
+               class="btn btn-sm btn-quiet text-xs font-bold border border-slate-200 text-slate-700 hover:text-daun inline-flex items-center gap-1.5">
+                <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" x2="12" y1="15" y2="3"/>
+                </svg>
+                Unduh CSV
+            </a>
+
+            @if (count($years) > 1)
+                @php
+                    $yearOptions = [];
+                    foreach ($years as $y) {
+                        $yearOptions[$y] = 'Tahun ' . $y;
+                    }
+                @endphp
+                <form method="GET" class="w-32">
+                    <label for="tahun" class="sr-only">Pilih Tahun</label>
+                    <x-dropdown name="tahun" :value="$year" :options="$yearOptions" autosubmit />
+                    <noscript><button class="btn btn-quiet text-xs font-bold mt-1">Pilih</button></noscript>
+                </form>
+            @endif
+        </div>
     </div>
 
     {{-- Fintech-style Summary Cards --}}
@@ -175,5 +218,45 @@
             @endforelse
         </div>
     </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const btn = document.getElementById('btn-copy-wa');
+            const label = document.getElementById('btn-copy-label');
+            if (btn && label) {
+                btn.addEventListener('click', function () {
+                    const text = btn.getAttribute('data-text');
+                    const onSuccess = function () {
+                        const orig = label.textContent;
+                        label.textContent = '✓ Tersalin!';
+                        setTimeout(function () { label.textContent = orig; }, 2500);
+                    };
+
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text).then(onSuccess).catch(function () {
+                            fallbackCopy(text, onSuccess);
+                        });
+                    } else {
+                        fallbackCopy(text, onSuccess);
+                    }
+                });
+            }
+
+            function fallbackCopy(text, cb) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    cb();
+                } catch (e) {}
+                document.body.removeChild(ta);
+            }
+        });
+    </script>
 </x-layouts.public>
 

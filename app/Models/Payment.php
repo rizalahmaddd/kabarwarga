@@ -41,4 +41,11 @@ class Payment extends Model
             ? 'Sekali bayar'
             : CarbonImmutable::createFromFormat('!Y-m', $this->period)->translatedFormat('F Y');
     }
+
+    public function receiptNumber(): string
+    {
+        $prefix = $this->paid_on ? $this->paid_on->format('Ym') : date('Ym');
+
+        return sprintf('KW-%s-%04d', $prefix, $this->id);
+    }
 }

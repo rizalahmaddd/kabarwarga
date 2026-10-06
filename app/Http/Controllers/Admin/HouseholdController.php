@@ -16,6 +16,35 @@ class HouseholdController extends Controller
         return view('admin.households.index', compact('households'));
     }
 
+    public function export()
+    {
+        $households = Household::withCount('members')->ordered()->get();
+        $filename = 'daftar-rumah-warga-'.now()->format('YmdHis').'.csv';
+
+        return response()->streamDownload(function () use ($households) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['Nomor Rumah', 'Nama Kepala Keluarga', 'Status Hunian', 'Nomor KK', 'No. WhatsApp / HP', 'Jumlah Anggota Keluarga', 'Status Rumah', 'Catatan']);
+
+            foreach ($households as $household) {
+                fputcsv($handle, [
+                    $household->number,
+                    $household->head_name,
+                    ucfirst($household->occupancy_status ?? 'pemilik'),
+                    $household->kk_number ?? '-',
+                    $household->phone ?? '-',
+                    $household->members_count,
+                    $household->is_active ? 'Aktif' : 'Nonaktif',
+                    $household->note ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
     public function create()
     {
         return view('admin.households.form', ['household' => new Household(['is_active' => true])]);

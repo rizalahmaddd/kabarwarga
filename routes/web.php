@@ -6,6 +6,7 @@ use App\Http\Controllers\DuesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PayController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -13,6 +14,8 @@ Route::get('/kabar', [PostController::class, 'index'])->name('posts.index');
 Route::get('/kabar/{post}', [PostController::class, 'show'])->name('posts.show');
 Route::get('/iuran', [DuesController::class, 'index'])->name('dues.index');
 Route::get('/kas', [DuesController::class, 'cashbook'])->name('dues.cashbook');
+Route::get('/kas/export', [DuesController::class, 'exportCashbook'])->name('dues.cashbook.export');
+Route::get('/kuitansi/{payment}', [ReceiptController::class, 'show'])->name('receipt.show');
 Route::get('/bayar', [PayController::class, 'create'])->name('pay.create');
 Route::post('/bayar', [PayController::class, 'store'])->middleware('throttle:10,1')->name('pay.store');
 Route::get('/bayar/cek/{code}', [PayController::class, 'show'])->name('pay.show');
@@ -39,6 +42,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::resource('rekening', Admin\BankAccountController::class)->except('show')->parameters(['rekening' => 'bankAccount'])->names('bank-accounts');
 
     Route::resource('kabar', Admin\PostController::class)->except('show')->parameters(['kabar' => 'post'])->names('posts');
+    Route::get('/rumah/export', [Admin\HouseholdController::class, 'export'])->name('households.export');
     Route::resource('rumah', Admin\HouseholdController::class)->except('show')->parameters(['rumah' => 'household'])->names('households');
     Route::get('/rumah/{household}/penghuni', [Admin\HouseholdMemberController::class, 'index'])->name('households.members.index');
     Route::post('/rumah/{household}/penghuni', [Admin\HouseholdMemberController::class, 'store'])->name('households.members.store');

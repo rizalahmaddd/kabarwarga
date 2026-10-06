@@ -55,7 +55,10 @@ class PaymentController extends Controller
     public function store(StorePaymentRequest $request, PaymentRecorder $recorder)
     {
         $type = $request->duesType();
-        ['created' => $created, 'skipped' => $skipped] = $recorder->record($type, $request->validated(), $request->user());
+        $recordResult = $recorder->record($type, $request->validated(), $request->user());
+        $created = $recordResult['created'];
+        $skipped = $recordResult['skipped'];
+        $payments = $recordResult['payments'] ?? [];
 
         $household = Household::find($request->validated('household_id'));
         $message = $created
@@ -65,9 +68,33 @@ class PaymentController extends Controller
             $message .= ' Sudah tercatat sebelumnya: '.implode(', ', $skipped).'.';
         }
 
-        return redirect()
+        $redirect = redirect()
             ->route('admin.home', ['rumah' => $household->id, 'jenis' => $type->id, 'tahun' => $request->integer('year') ?: null])
             ->with($created ? 'status' : 'warning', $message);
+
+        if ($created && ! empty($payments)) {
+            $firstPayment = $payments[0];
+            $receiptUrl = route('receipt.show', $firstPayment);
+            $redirect->with('receipt_url', $receiptUrl);
+
+            if ($household->phone) {
+                $cleanPhone = clean_phone($household->phone);
+                $totalAmount = array_sum(array_map(fn ($p) => $p->amount, $payments)) ?: (int) $request->validated('amount');
+                $periodsLabel = implode(', ', $created);
+                $paidOnDate = $firstPayment->paid_on->translatedFormat('j F Y');
+                $siteName = setting('site_name');
+
+                $waText = "Halo Bpk/Ibu {$household->head_name} (Rumah {$household->number}),\n"
+                    ."Pembayaran iuran {$type->name} untuk periode {$periodsLabel} sebesar ".rupiah($totalAmount)." telah dicatat LUNAS pada {$paidOnDate}.\n\n"
+                    ."Tanda terima resmi: {$receiptUrl}\n\n"
+                    ."Terima kasih atas partisipasinya! 🙏\n- Pengurus {$siteName}";
+
+                $redirect->with('whatsapp_url', "https://wa.me/{$cleanPhone}?text=".rawurlencode($waText))
+                    ->with('whatsapp_recipient', "{$household->head_name} ({$household->phone})");
+            }
+        }
+
+        return $redirect;
     }
 
     public function index(Request $request)

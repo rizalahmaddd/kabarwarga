@@ -10,7 +10,15 @@
             <h1 class="font-extrabold text-2xl sm:text-3xl text-slate-900 tracking-tight">Daftar Rumah Warga</h1>
             <p class="text-xs sm:text-sm text-slate-500 mt-1">Nomor rumah dan nama kepala keluarga tampil di halaman iuran warga.</p>
         </div>
-        <div>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('admin.households.export') }}" class="btn btn-sm btn-quiet text-xs font-bold flex items-center gap-1.5 border border-slate-200 text-slate-700 hover:text-daun">
+                <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" x2="12" y1="15" y2="3"/>
+                </svg>
+                Unduh CSV
+            </a>
             <a href="{{ route('admin.households.create') }}" class="btn btn-sm btn-primary text-xs font-bold flex items-center gap-1.5 shadow-xs">
                 + Tambah Rumah Baru
             </a>

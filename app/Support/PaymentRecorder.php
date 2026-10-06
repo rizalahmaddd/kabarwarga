@@ -10,13 +10,14 @@ class PaymentRecorder
 {
     /**
      * @param  array{household_id: int|string, periods?: array<int, string>|null, amount: int, paid_on: string, method: string, note?: string|null}  $data
-     * @return array{created: array<int, string>, skipped: array<int, string>}
+     * @return array{created: array<int, string>, skipped: array<int, string>, payments: array<int, Payment>}
      */
     public function record(DuesType $type, array $data, User $recorder): array
     {
         $periods = $type->isMonthly() ? array_unique($data['periods']) : [''];
         $created = [];
         $skipped = [];
+        $payments = [];
 
         // The form sends the total received, so split it across the months to keep the cashbook sum right.
         $share = intdiv($data['amount'], count($periods));
@@ -36,11 +37,12 @@ class PaymentRecorder
 
             if ($payment->wasRecentlyCreated) {
                 $created[] = $payment->periodLabel();
+                $payments[] = $payment;
             } else {
                 $skipped[] = $payment->periodLabel();
             }
         }
 
-        return ['created' => $created, 'skipped' => $skipped];
+        return ['created' => $created, 'skipped' => $skipped, 'payments' => $payments];
     }
 }
