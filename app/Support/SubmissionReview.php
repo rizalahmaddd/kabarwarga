@@ -101,31 +101,74 @@ class SubmissionReview
         });
     }
 
-    public function reject(PaymentSubmission $submission, string $reason, User $reviewer): void
+    /**
+     * Returns false when the submission was no longer pending.
+     */
+    public function reject(PaymentSubmission $submission, string $reason, User $reviewer): bool
     {
-        $submission->update([
-            'status' => PaymentSubmission::REJECTED,
-            'reject_reason' => $reason,
-            'reviewed_by' => $reviewer->id,
-            'reviewed_at' => now(),
-        ]);
+        return $this->whileLocked($submission, PaymentSubmission::PENDING, function (PaymentSubmission $locked) use ($reason, $reviewer) {
+            $locked->update([
+                'status' => PaymentSubmission::REJECTED,
+                'reject_reason' => $reason,
+                'reviewed_by' => $reviewer->id,
+                'reviewed_at' => now(),
+            ]);
+
+            return true;
+        }) ?? false;
     }
 
     /**
-     * Undoes an approval and returns how many payment records were removed.
+     * Undoes an approval and returns how many payment records were removed, or null when it was no longer approved.
      */
-    public function cancel(PaymentSubmission $submission): int
+    public function cancel(PaymentSubmission $submission): ?int
     {
-        return DB::transaction(function () use ($submission) {
-            $removed = Payment::where('payment_submission_id', $submission->id)->delete();
-            $submission->update(['status' => PaymentSubmission::PENDING, 'approved_periods' => null, 'reject_reason' => null, 'reviewed_by' => null, 'reviewed_at' => null]);
+        return $this->whileLocked($submission, PaymentSubmission::APPROVED, function (PaymentSubmission $locked) {
+            $removed = Payment::where('payment_submission_id', $locked->id)->delete();
+            $locked->update(['status' => PaymentSubmission::PENDING, 'approved_periods' => null, 'reject_reason' => null, 'reviewed_by' => null, 'reviewed_at' => null]);
 
             return $removed;
         });
     }
 
-    public function reopen(PaymentSubmission $submission): void
+    /**
+     * Returns why the submission cannot go back to pending, or null when it did.
+     */
+    public function reopen(PaymentSubmission $submission): ?string
     {
-        $submission->update(['status' => PaymentSubmission::PENDING, 'reject_reason' => null, 'reviewed_by' => null, 'reviewed_at' => null]);
+        return $this->whileLocked($submission, PaymentSubmission::REJECTED, function (PaymentSubmission $locked) {
+            $paid = Payment::where('household_id', $locked->household_id)
+                ->where('dues_type_id', $locked->dues_type_id)
+                ->whereIn('period', $locked->periods)
+                ->pluck('period')
+                ->all();
+            $pending = array_intersect($locked->periods, PaymentSubmission::pendingPeriods($locked->household_id, $locked->dues_type_id));
+
+            // Residents usually resend after a rejection, so reopening blindly would leave the same months pending twice.
+            if ($paid || $pending) {
+                $what = $paid ? 'sudah tercatat lunas' : 'sedang menunggu di pengajuan lain';
+
+                return "Tidak bisa dibuka lagi: {$locked->periodsLabel(array_values(array_merge($paid, $pending)))} {$what}.";
+            }
+
+            $locked->update(['status' => PaymentSubmission::PENDING, 'reject_reason' => null, 'reviewed_by' => null, 'reviewed_at' => null]);
+
+            return null;
+        }, "Pengajuan #{$submission->code} sudah tidak dalam status ditolak.");
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(PaymentSubmission): T  $callback
+     * @return T|null
+     */
+    private function whileLocked(PaymentSubmission $submission, string $expectedStatus, callable $callback, mixed $whenStale = null): mixed
+    {
+        return DB::transaction(function () use ($submission, $expectedStatus, $callback, $whenStale) {
+            $locked = PaymentSubmission::lockForUpdate()->findOrFail($submission->id);
+
+            return $locked->status === $expectedStatus ? $callback($locked) : $whenStale;
+        });
     }
 }

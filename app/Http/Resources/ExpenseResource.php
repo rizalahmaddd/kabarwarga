@@ -18,7 +18,10 @@ class ExpenseResource extends JsonResource
             'id' => $this->id,
             'spent_on' => $this->spent_on->toDateString(),
             'description' => $this->description,
+            'category' => $this->category,
+            'category_label' => $this->categoryLabel(),
             'amount' => $this->amount,
+            'receipt_url' => $this->receiptUrl(),
             'recorder' => new UserResource($this->whenLoaded('recorder')),
         ];
     }

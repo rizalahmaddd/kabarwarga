@@ -82,7 +82,9 @@ class PaymentSubmissionController extends Controller
             return $this->alreadyProcessed($submission);
         }
 
-        $review->reject($submission, $data['reject_reason'], $request->user());
+        if (! $review->reject($submission, $data['reject_reason'], $request->user())) {
+            return $this->alreadyProcessed($submission);
+        }
 
         return (new PaymentSubmissionResource($submission->fresh(['household', 'duesType', 'bankAccount', 'reviewer'])))
             ->additional(['message' => "Pengajuan #{$submission->code} ditolak. Warga bisa mengirim ulang."])
@@ -96,6 +98,9 @@ class PaymentSubmissionController extends Controller
         }
 
         $removed = $review->cancel($submission);
+        if ($removed === null) {
+            return response()->json(['message' => "Pengajuan #{$submission->code} belum diterima, jadi tidak ada yang bisa dibatalkan."], 409);
+        }
 
         return (new PaymentSubmissionResource($submission->fresh(['household', 'duesType', 'bankAccount'])))
             ->additional([
@@ -111,7 +116,9 @@ class PaymentSubmissionController extends Controller
             return response()->json(['message' => "Pengajuan #{$submission->code} tidak dalam status ditolak."], 409);
         }
 
-        $review->reopen($submission);
+        if ($refusal = $review->reopen($submission)) {
+            return response()->json(['message' => $refusal], 409);
+        }
 
         return (new PaymentSubmissionResource($submission->fresh(['household', 'duesType', 'bankAccount'])))
             ->additional(['message' => "Pengajuan #{$submission->code} dikembalikan ke daftar menunggu."])

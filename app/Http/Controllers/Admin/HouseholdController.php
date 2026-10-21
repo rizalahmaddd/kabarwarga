@@ -69,6 +69,13 @@ class HouseholdController extends Controller
         return redirect()->route('admin.households.index')->with('status', "Data rumah {$household->number} disimpan.");
     }
 
+    public function resetPortal(Household $household)
+    {
+        $household->resetAccessToken();
+
+        return back()->with('status', "Link halaman rumah {$household->number} sudah diganti. Kirim link baru ke keluarga tersebut.");
+    }
+
     public function destroy(Household $household)
     {
         if ($household->payments()->exists()) {

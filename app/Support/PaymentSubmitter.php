@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PaymentSubmission;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PaymentSubmitter
@@ -19,22 +20,27 @@ class PaymentSubmitter
     public function submit(array $data, UploadedFile $proof): PaymentSubmission
     {
         $type = DuesType::findOrFail($data['dues_type_id']);
-        $periods = $this->checkedPeriods($type, (int) $data['household_id'], $data['periods'] ?? []);
         $account = BankAccount::findOrFail($data['bank_account_id']);
 
-        return PaymentSubmission::create([
-            'code' => PaymentSubmission::newCode(),
-            'household_id' => $data['household_id'],
-            'dues_type_id' => $type->id,
-            'periods' => $periods,
-            'unit_amount' => $type->amount,
-            'unique_code' => $account->hasDynamicQris() ? Household::findOrFail($data['household_id'])->uniqueCode() : 0,
-            'bank_account_id' => $account->id,
-            'payer_name' => $data['payer_name'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'note' => $data['note'] ?? null,
-            'proof_path' => $proof->store('bukti-bayar', 'local'),
-        ]);
+        return DB::transaction(function () use ($data, $proof, $type, $account) {
+            // Locking the household row makes a double-tapped submit wait for the first one, so its months show up as pending.
+            $household = Household::lockForUpdate()->findOrFail($data['household_id']);
+            $periods = $this->checkedPeriods($type, $household->id, $data['periods'] ?? []);
+
+            return PaymentSubmission::create([
+                'code' => PaymentSubmission::newCode(),
+                'household_id' => $household->id,
+                'dues_type_id' => $type->id,
+                'periods' => $periods,
+                'unit_amount' => $type->amount,
+                'unique_code' => $account->hasDynamicQris() ? $household->uniqueCode() : 0,
+                'bank_account_id' => $account->id,
+                'payer_name' => $data['payer_name'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'note' => $data['note'] ?? null,
+                'proof_path' => $proof->store('bukti-bayar', 'local'),
+            ]);
+        });
     }
 
     /**

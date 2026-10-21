@@ -15,6 +15,9 @@ class Setting extends Model
         'address' => '',
         'treasurer_contact' => '',
         'payment_info' => '',
+        'chairman_name' => '',
+        'treasurer_name' => '',
+        'letter_code' => '',
     ];
 
     protected $primaryKey = 'key';

@@ -52,7 +52,7 @@ class DuesController extends Controller
             ->map(fn ($e) => [
                 'date' => $e->spent_on->toDateString(),
                 'type' => 'Pengeluaran',
-                'description' => $e->description,
+                'description' => "{$e->description} ({$e->categoryLabel()})",
                 'in' => 0,
                 'out' => $e->amount,
             ]);

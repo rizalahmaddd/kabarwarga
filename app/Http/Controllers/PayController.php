@@ -23,8 +23,15 @@ class PayController extends Controller
         $type = $types->firstWhere('id', (int) $request->query('jenis'));
 
         $thisYear = now()->year;
+        $firstYear = $thisYear - 1;
+        if ($type?->isMonthly()) {
+            // Old arrears must stay payable; PaymentSubmitter accepts up to five years back.
+            $startYear = ($type->starts_on ?? CarbonImmutable::parse($type->created_at))->year;
+            $firstYear = max($thisYear - 5, min($startYear, $firstYear));
+        }
+        $years = range($firstYear, $thisYear + 1);
         $year = (int) $request->query('tahun', $thisYear);
-        $year = $year >= $thisYear - 1 && $year <= $thisYear + 1 ? $year : $thisYear;
+        $year = in_array($year, $years, true) ? $year : $thisYear;
 
         $months = collect();
         $paid = collect();
@@ -48,6 +55,7 @@ class PayController extends Controller
             'household' => $household,
             'type' => $type,
             'year' => $year,
+            'years' => $years,
             'months' => $months,
             'paid' => $paid,
             'pending' => $pending,

@@ -35,6 +35,16 @@ class Payment extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
+    public function submission(): BelongsTo
+    {
+        return $this->belongsTo(PaymentSubmission::class, 'payment_submission_id');
+    }
+
+    public function isFromSubmission(): bool
+    {
+        return $this->payment_submission_id !== null;
+    }
+
     public function periodLabel(): string
     {
         return $this->period === ''

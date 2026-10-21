@@ -115,6 +115,32 @@
                 </div>
             @endif
 
+            @if ($household->exists)
+                @php
+                    $portalUrl = $household->portalUrl();
+                    $portalText = "Halo Bpk/Ibu {$household->head_name} (Rumah {$household->number}),\nIni link halaman rumah Anda untuk cek tagihan iuran, kuitansi, dan mengajukan surat pengantar RT:\n{$portalUrl}\n\nMohon link ini tidak dibagikan ke orang lain.\n- Pengurus ".setting('site_name');
+                @endphp
+                <div class="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-3">
+                    <span class="font-bold text-xs text-slate-900 block">Link Halaman Rumah</span>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Link pribadi untuk keluarga ini: tagihan, kuitansi, data KK, dan pengajuan surat. Siapa pun yang memegang link bisa membukanya, jadi kirim hanya ke nomor keluarga ini.
+                    </p>
+                    <input type="text" readonly value="{{ $portalUrl }}" class="input min-h-10 py-1.5 text-xs font-mono" aria-label="Link halaman rumah" onclick="this.select()">
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" data-copy="{{ $portalUrl }}" data-copy-message="Link halaman rumah disalin ✓" class="btn btn-sm btn-quiet text-xs">Salin link</button>
+                        @if ($household->phone)
+                            <a href="https://wa.me/{{ clean_phone($household->phone) }}?text={{ rawurlencode($portalText) }}" target="_blank" rel="noopener noreferrer"
+                               class="btn btn-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs">Kirim via WA</a>
+                        @endif
+                        <form method="POST" action="{{ route('admin.households.portal-reset', $household) }}"
+                              data-confirm="Buat link baru? Link lama langsung tidak bisa dipakai lagi.">
+                            @csrf
+                            <button class="btn btn-sm btn-danger text-xs" data-busy="Membuat...">Ganti link</button>
+                        </form>
+                    </div>
+                </div>
+            @endif
+
             <div class="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200/60 space-y-2">
                 <span class="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
                     <svg class="size-4 text-daun shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

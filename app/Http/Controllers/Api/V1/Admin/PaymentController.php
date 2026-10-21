@@ -53,6 +53,10 @@ class PaymentController extends Controller
 
     public function destroy(Payment $payment): JsonResponse
     {
+        if ($payment->isFromSubmission()) {
+            return response()->json(['message' => "Catatan ini berasal dari bukti bayar online #{$payment->submission->code}. Batalkan konfirmasinya lewat endpoint cancel pengajuan tersebut."], 409);
+        }
+
         $label = "{$payment->duesType->name} rumah {$payment->household->number} ({$payment->periodLabel()})";
         $payment->delete();
 

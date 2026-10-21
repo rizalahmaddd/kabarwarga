@@ -14,7 +14,7 @@
 
     <div class="grid gap-8 lg:grid-cols-12 items-start">
         <div class="lg:col-span-8">
-            <form method="POST" action="{{ $expense->exists ? route('admin.expenses.update', $expense) : route('admin.expenses.store') }}" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 sm:p-7 space-y-5">
+            <form method="POST" action="{{ $expense->exists ? route('admin.expenses.update', $expense) : route('admin.expenses.store') }}" enctype="multipart/form-data" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 sm:p-7 space-y-5">
                 @csrf
                 @if ($expense->exists) @method('PUT') @endif
 
@@ -38,6 +38,32 @@
                         <label for="spent_on" class="field-label">Tanggal Pengeluaran</label>
                         <input id="spent_on" name="spent_on" type="date" class="input" required max="{{ now()->toDateString() }}" value="{{ old('spent_on', $expense->spent_on?->format('Y-m-d') ?? now()->toDateString()) }}" @error('spent_on') aria-invalid="true" @enderror>
                         @error('spent_on') <span class="field-error">{{ $message }}</span> @enderror
+                    </div>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="category" class="field-label">Kategori</label>
+                        <select id="category" name="category" class="input" required>
+                            @foreach (\App\Models\Expense::CATEGORIES as $key => $label)
+                                <option value="{{ $key }}" @selected(old('category', $expense->category ?? 'lainnya') === $key)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        <span class="field-hint">Dipakai untuk rekap di laporan kas.</span>
+                    </div>
+                    <div>
+                        <label for="receipt" class="field-label">Foto nota / kuitansi <span class="font-normal text-slate-400">(Opsional)</span></label>
+                        <input id="receipt" name="receipt" type="file" accept="image/*,application/pdf" class="input py-2 text-sm" @error('receipt') aria-invalid="true" @enderror>
+                        <span class="field-hint">Tampil di buku kas publik supaya warga bisa melihat buktinya.</span>
+                        @error('receipt') <span class="field-error">{{ $message }}</span> @enderror
+                        @if ($expense->receipt_path)
+                            <div class="mt-2 flex items-center gap-3 text-xs">
+                                <a href="{{ $expense->receiptUrl() }}" target="_blank" class="font-semibold text-daun hover:underline">Lihat nota tersimpan</a>
+                                <label class="inline-flex items-center gap-1.5 text-slate-600">
+                                    <input type="checkbox" name="remove_receipt" value="1" class="rounded border-slate-300"> Hapus nota
+                                </label>
+                            </div>
+                        @endif
                     </div>
                 </div>
 

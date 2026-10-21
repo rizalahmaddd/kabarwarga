@@ -44,6 +44,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::delete('/posts/{post:id}', [Admin\PostController::class, 'destroy'])->name('posts.destroy');
 
             Route::apiResource('households', Admin\HouseholdController::class);
+            Route::get('/households/{household}/members', [Admin\HouseholdMemberController::class, 'index'])->name('households.members.index');
+            Route::post('/households/{household}/members', [Admin\HouseholdMemberController::class, 'store'])->name('households.members.store');
+            Route::put('/households/{household}/members/{member}', [Admin\HouseholdMemberController::class, 'update'])->name('households.members.update');
+            Route::delete('/households/{household}/members/{member}', [Admin\HouseholdMemberController::class, 'destroy'])->name('households.members.destroy');
             Route::apiResource('dues-types', Admin\DuesTypeController::class)->parameters(['dues-types' => 'duesType']);
             Route::apiResource('expenses', Admin\ExpenseController::class);
             Route::apiResource('bank-accounts', Admin\BankAccountController::class)->parameters(['bank-accounts' => 'bankAccount']);

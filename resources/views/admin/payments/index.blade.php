@@ -102,13 +102,21 @@
                         Kuitansi
                     </a>
 
-                    <form method="POST" action="{{ route('admin.payments.destroy', $payment) }}"
-                          data-confirm="Hapus catatan {{ $payment->duesType->name }} rumah {{ $payment->household->number }} ({{ $payment->periodLabel() }})?">
-                        @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-danger text-xs font-bold" data-busy="Menghapus...">
-                            Hapus
-                        </button>
-                    </form>
+                    @if ($payment->isFromSubmission())
+                        <a href="{{ route('admin.submissions.index', ['status' => \App\Models\PaymentSubmission::APPROVED]) }}"
+                           title="Berasal dari bukti bayar online. Batalkan lewat menu Konfirmasi Bayar."
+                           class="btn btn-sm btn-quiet text-xs font-bold border border-slate-200 text-slate-500">
+                            Bukti online
+                        </a>
+                    @else
+                        <form method="POST" action="{{ route('admin.payments.destroy', $payment) }}"
+                              data-confirm="Hapus catatan {{ $payment->duesType->name }} rumah {{ $payment->household->number }} ({{ $payment->periodLabel() }})?">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-sm btn-danger text-xs font-bold" data-busy="Menghapus...">
+                                Hapus
+                            </button>
+                        </form>
+                    @endif
                 </div>
             </div>
         @empty

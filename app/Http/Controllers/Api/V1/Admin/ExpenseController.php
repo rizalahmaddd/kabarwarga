@@ -23,7 +23,7 @@ class ExpenseController extends Controller
 
     public function store(ExpenseRequest $request): JsonResponse
     {
-        $expense = Expense::create($request->validated() + ['recorded_by' => $request->user()->id]);
+        $expense = Expense::create($request->payload() + ['recorded_by' => $request->user()->id]);
 
         return (new ExpenseResource($expense))
             ->additional(['message' => "Pengeluaran \"{$expense->description}\" dicatat."])
@@ -38,7 +38,7 @@ class ExpenseController extends Controller
 
     public function update(ExpenseRequest $request, Expense $expense): ExpenseResource
     {
-        $expense->update($request->validated());
+        $expense->update($request->payload($expense));
 
         return (new ExpenseResource($expense))->additional(['message' => 'Pengeluaran disimpan.']);
     }

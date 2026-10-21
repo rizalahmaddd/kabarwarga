@@ -48,6 +48,22 @@
                         <textarea id="payment_info" name="payment_info" rows="3" maxlength="500" class="input" placeholder="Mis. Bisa juga setor tunai saat penagihan door-to-door tiap tanggal 5.">{{ old('payment_info', $settings['payment_info']) }}</textarea>
                         <span class="field-hint">Nomor rekening & QRIS diatur di menu <a href="{{ route('admin.bank-accounts.index') }}" class="font-semibold text-daun">Rekening</a>.</span>
                     </div>
+
+                    <div>
+                        <label for="chairman_name" class="field-label">Nama Ketua RT <span class="font-normal text-slate-400">(Tanda tangan surat & laporan)</span></label>
+                        <input id="chairman_name" name="chairman_name" type="text" maxlength="100" class="input" value="{{ old('chairman_name', $settings['chairman_name']) }}" placeholder="Mis. Drs. Suparman">
+                    </div>
+
+                    <div>
+                        <label for="treasurer_name" class="field-label">Nama Bendahara <span class="font-normal text-slate-400">(Tanda tangan laporan kas)</span></label>
+                        <input id="treasurer_name" name="treasurer_name" type="text" maxlength="100" class="input" value="{{ old('treasurer_name', $settings['treasurer_name']) }}" placeholder="Mis. Hendra Wijaya">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label for="letter_code" class="field-label">Kode Nomor Surat <span class="font-normal text-slate-400">(Opsional)</span></label>
+                        <input id="letter_code" name="letter_code" type="text" maxlength="40" class="input" value="{{ old('letter_code', $settings['letter_code']) }}" placeholder="Mis. RT.04/RW.07">
+                        <span class="field-hint">Nomor surat pengantar dibuat otomatis: 001/<b>kode</b>/X/{{ now()->year }}.</span>
+                    </div>
                 </div>
 
                 <div class="pt-2">

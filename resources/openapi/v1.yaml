@@ -45,6 +45,8 @@ tags:
     description: Pengumuman, berita, kegiatan, dan info iuran.
   - name: Admin · Rumah
     description: Data rumah/kepala keluarga.
+  - name: Admin · Penghuni
+    description: Anggota keluarga per rumah (data Kartu Keluarga).
   - name: Admin · Jenis Iuran
     description: Iuran bulanan dan sekali bayar.
   - name: Admin · Pengeluaran
@@ -730,6 +732,53 @@ paths:
         '200': { $ref: '#/components/responses/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /admin/households/{household}/members:
+    parameters:
+      - { name: household, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Penghuni]
+      summary: Anggota keluarga satu rumah
+      description: Urut dari kepala keluarga, suami, istri, anak, lalu yang lain.
+      responses:
+        '200':
+          description: Daftar anggota
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/HouseholdMember' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Admin · Penghuni]
+      summary: Tambah anggota keluarga
+      requestBody: { $ref: '#/components/requestBodies/HouseholdMemberInput' }
+      responses:
+        '201': { $ref: '#/components/responses/HouseholdMemberResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/households/{household}/members/{member}:
+    parameters:
+      - { name: household, in: path, required: true, schema: { type: integer } }
+      - { name: member, in: path, required: true, schema: { type: integer } }
+    put:
+      tags: [Admin · Penghuni]
+      summary: Ubah data anggota keluarga
+      description: 404 kalau anggota bukan milik rumah tersebut.
+      requestBody: { $ref: '#/components/requestBodies/HouseholdMemberInput' }
+      responses:
+        '200': { $ref: '#/components/responses/HouseholdMemberResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Admin · Penghuni]
+      summary: Hapus anggota keluarga
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/dues-types:
     get:
@@ -912,6 +961,9 @@ paths:
                 address: { type: string, maxLength: 255 }
                 treasurer_contact: { type: string, maxLength: 160 }
                 payment_info: { type: string, maxLength: 500 }
+                chairman_name: { type: string, maxLength: 100 }
+                treasurer_name: { type: string, maxLength: 100 }
+                letter_code: { type: string, maxLength: 40 }
       responses:
         '200':
           description: Tersimpan
@@ -1032,6 +1084,26 @@ components:
               phone: { type: string, maxLength: 30 }
               note: { type: string, maxLength: 1000 }
               is_active: { type: boolean }
+    HouseholdMemberInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              nik: { type: string, maxLength: 20, example: '3201111111110001' }
+              name: { type: string, maxLength: 100 }
+              gender: { type: string, enum: [L, P] }
+              birth_place: { type: string, maxLength: 100 }
+              birth_date: { type: string, format: date, example: '1985-01-31' }
+              religion: { type: string, maxLength: 30 }
+              education: { type: string, maxLength: 50 }
+              job: { type: string, maxLength: 100 }
+              marital_status: { type: string, maxLength: 30 }
+              family_relation: { type: string, maxLength: 50, example: Kepala Keluarga }
+              occupancy_status: { type: string, enum: [pemilik, kontrak] }
+              phone: { type: string, maxLength: 30 }
     DuesTypeInput:
       required: true
       content:
@@ -1049,6 +1121,7 @@ components:
               is_active: { type: boolean }
     ExpenseInput:
       required: true
+      description: Kirim `multipart/form-data` kalau melampirkan nota. Untuk update dengan file, pakai `POST` + `_method=PUT`.
       content:
         application/json:
           schema:
@@ -1057,7 +1130,19 @@ components:
             properties:
               spent_on: { type: string, format: date, description: Hari ini atau sebelumnya. }
               description: { type: string, maxLength: 255 }
+              category: { $ref: '#/components/schemas/ExpenseCategory' }
               amount: { type: integer, minimum: 1, maximum: 100000000 }
+        multipart/form-data:
+          schema:
+            type: object
+            required: [spent_on, description, amount]
+            properties:
+              spent_on: { type: string, format: date, description: Hari ini atau sebelumnya. }
+              description: { type: string, maxLength: 255 }
+              category: { $ref: '#/components/schemas/ExpenseCategory' }
+              amount: { type: integer, minimum: 1, maximum: 100000000 }
+              receipt: { type: string, format: binary, description: Foto nota (JPG/PNG/WEBP) atau PDF, maks 5 MB. }
+              remove_receipt: { type: boolean, description: Hapus nota yang tersimpan. }
     BankAccountInput:
       required: true
       content:
@@ -1146,6 +1231,15 @@ components:
             properties:
               data: { $ref: '#/components/schemas/Household' }
               message: { type: string }
+    HouseholdMemberResult:
+      description: Anggota keluarga
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/HouseholdMember' }
+              message: { type: string }
     DuesTypeResult:
       description: Jenis iuran
       content:
@@ -1214,6 +1308,9 @@ components:
         address: { type: string }
         treasurer_contact: { type: string }
         payment_info: { type: string }
+        chairman_name: { type: string, description: Nama ketua RT untuk tanda tangan surat dan laporan. }
+        treasurer_name: { type: string, description: Nama bendahara untuk tanda tangan laporan kas. }
+        letter_code: { type: string, example: RT.04/RW.07, description: Bagian tengah nomor surat pengantar. }
     PostCategory:
       type: string
       enum: [pengumuman, berita, kegiatan, iuran]
@@ -1289,6 +1386,23 @@ components:
         kk_number: { type: ['string', 'null'], description: Khusus pengurus. }
         payments_count: { type: integer, description: Khusus daftar/detail pengurus. }
         members_count: { type: integer, description: Khusus daftar/detail pengurus. }
+    HouseholdMember:
+      type: object
+      properties:
+        id: { type: integer }
+        household_id: { type: integer }
+        nik: { type: ['string', 'null'] }
+        name: { type: string }
+        gender: { type: ['string', 'null'], enum: [L, P, null] }
+        birth_place: { type: ['string', 'null'] }
+        birth_date: { type: ['string', 'null'], format: date }
+        religion: { type: ['string', 'null'] }
+        education: { type: ['string', 'null'] }
+        job: { type: ['string', 'null'] }
+        marital_status: { type: ['string', 'null'] }
+        family_relation: { type: ['string', 'null'] }
+        occupancy_status: { type: ['string', 'null'], enum: [pemilik, kontrak, null] }
+        phone: { type: ['string', 'null'] }
     DuesType:
       type: object
       properties:
@@ -1322,8 +1436,15 @@ components:
         id: { type: integer }
         spent_on: { type: string, format: date }
         description: { type: string }
+        category: { $ref: '#/components/schemas/ExpenseCategory' }
+        category_label: { type: string, example: Kebersihan & sampah }
         amount: { type: integer }
+        receipt_url: { type: ['string', 'null'], description: URL publik foto nota. }
         recorder: { $ref: '#/components/schemas/User' }
+    ExpenseCategory:
+      type: string
+      enum: [kebersihan, keamanan, perbaikan, kegiatan, sosial, operasional, lainnya]
+      description: Default `lainnya` kalau tidak dikirim.
     Payment:
       type: object
       properties:

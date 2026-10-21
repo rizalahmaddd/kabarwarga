@@ -107,6 +107,7 @@ class HouseholdMemberTest extends TestCase
 
     public function test_admin_can_sync_members_and_kk_from_review(): void
     {
+        Storage::fake('local');
         Storage::fake('public');
         $this->actingAs($this->admin);
 
@@ -150,7 +151,8 @@ class HouseholdMemberTest extends TestCase
         $this->assertSame('kontrak', $this->household->occupancy_status);
         $this->assertSame('Bambang Sutrisno', $this->household->head_name);
         $this->assertNotNull($this->household->kk_image_path);
-        Storage::disk('public')->assertExists($this->household->kk_image_path);
+        Storage::disk('local')->assertExists($this->household->kk_image_path);
+        Storage::disk('public')->assertMissing($this->household->kk_image_path);
 
         $this->assertSame(2, $this->household->members()->count());
         $this->assertDatabaseHas('household_members', [
@@ -163,5 +165,33 @@ class HouseholdMemberTest extends TestCase
             'nik' => '3201111111110002',
             'name' => 'Ratna Dewi',
         ]);
+    }
+
+    public function test_kk_scan_is_private_and_removed_with_the_household(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+        Storage::disk('local')->put('kk/scan.jpg', 'img');
+        $this->household->update(['kk_image_path' => 'kk/scan.jpg']);
+
+        $this->get(route('admin.households.kk', $this->household))->assertRedirect(route('login'));
+
+        $this->actingAs($this->admin)->get(route('admin.households.kk', $this->household))->assertOk();
+
+        $this->delete(route('admin.households.destroy', $this->household));
+        Storage::disk('local')->assertMissing('kk/scan.jpg');
+    }
+
+    public function test_legacy_public_kk_scans_are_moved_to_private_disk(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+        Storage::disk('public')->put('kk/lama.jpg', 'img');
+        $this->household->update(['kk_image_path' => 'kk/lama.jpg']);
+
+        $this->artisan('kk:secure')->assertSuccessful();
+
+        Storage::disk('local')->assertExists('kk/lama.jpg');
+        Storage::disk('public')->assertMissing('kk/lama.jpg');
     }
 }

@@ -17,6 +17,9 @@ class SettingRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'treasurer_contact' => ['nullable', 'string', 'max:160'],
             'payment_info' => ['nullable', 'string', 'max:500'],
+            'chairman_name' => ['nullable', 'string', 'max:100'],
+            'treasurer_name' => ['nullable', 'string', 'max:100'],
+            'letter_code' => ['nullable', 'string', 'max:40'],
         ];
     }
 

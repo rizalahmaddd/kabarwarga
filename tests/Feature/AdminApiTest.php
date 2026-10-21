@@ -108,6 +108,7 @@ class AdminApiTest extends TestCase
             ->assertJsonPath('data.declined_periods', ['2026-03'])
             ->assertJsonCount(2, 'created');
         $this->assertSame(2, Payment::count());
+        $this->deleteJson('/api/v1/admin/payments/'.Payment::first()->id)->assertConflict();
 
         $this->postJson("{$url}/approve", ['paid_on' => now()->toDateString(), 'periods' => ['2026-01']])->assertConflict();
         $this->postJson("{$url}/reopen")->assertConflict();
@@ -118,6 +119,10 @@ class AdminApiTest extends TestCase
         $this->postJson("{$url}/reject", [])->assertJsonValidationErrors('reject_reason');
         $this->postJson("{$url}/reject", ['reject_reason' => 'Dana belum masuk'])->assertOk()->assertJsonPath('data.status', PaymentSubmission::REJECTED);
         $this->postJson("{$url}/reopen")->assertOk()->assertJsonPath('data.status', PaymentSubmission::PENDING);
+
+        $this->postJson("{$url}/reject", ['reject_reason' => 'Foto buram'])->assertOk();
+        $this->pendingSubmission($submission->household, $submission->duesType, ['2026-02']);
+        $this->postJson("{$url}/reopen")->assertConflict()->assertJsonPath('message', fn ($m) => str_contains($m, 'menunggu'));
     }
 
     public function test_one_time_submission_approval(): void
@@ -190,5 +195,26 @@ class AdminApiTest extends TestCase
             ->assertJsonValidationErrors('current_password');
         $this->putJson('/api/v1/admin/password', ['current_password' => 'rahasia123', 'password' => 'baru12345', 'password_confirmation' => 'baru12345'])->assertOk();
         $this->assertTrue(Hash::check('baru12345', $this->admin->fresh()->password));
+    }
+
+    public function test_household_members_crud_scoped_to_household(): void
+    {
+        $house = Household::create(['number' => 'F-1', 'head_name' => 'Pak F']);
+        $other = Household::create(['number' => 'F-2', 'head_name' => 'Pak G']);
+
+        $id = $this->postJson("/api/v1/admin/households/{$house->id}/members", ['name' => 'Siti', 'family_relation' => 'Istri', 'birth_date' => '1990-02-01'])
+            ->assertCreated()->assertJsonPath('data.birth_date', '1990-02-01')->json('data.id');
+        $this->postJson("/api/v1/admin/households/{$house->id}/members", ['name' => 'Pak F', 'family_relation' => 'Kepala Keluarga'])->assertCreated();
+
+        $this->getJson("/api/v1/admin/households/{$house->id}/members")
+            ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.family_relation', 'Kepala Keluarga');
+
+        $this->putJson("/api/v1/admin/households/{$other->id}/members/{$id}", ['name' => 'Siti'])->assertNotFound();
+        $this->putJson("/api/v1/admin/households/{$house->id}/members/{$id}", ['name' => 'Siti Aminah', 'gender' => 'X'])
+            ->assertUnprocessable()->assertJsonValidationErrors('gender');
+        $this->putJson("/api/v1/admin/households/{$house->id}/members/{$id}", ['name' => 'Siti Aminah'])->assertOk()->assertJsonPath('data.name', 'Siti Aminah');
+
+        $this->deleteJson("/api/v1/admin/households/{$house->id}/members/{$id}")->assertOk();
+        $this->assertDatabaseMissing('household_members', ['id' => $id]);
     }
 }

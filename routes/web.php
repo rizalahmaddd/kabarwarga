@@ -4,7 +4,9 @@ use App\Http\Controllers\Admin;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DuesController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LetterController;
 use App\Http\Controllers\PayController;
+use App\Http\Controllers\PortalController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ReceiptController;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +21,12 @@ Route::get('/kuitansi/{payment}', [ReceiptController::class, 'show'])->name('rec
 Route::get('/bayar', [PayController::class, 'create'])->name('pay.create');
 Route::post('/bayar', [PayController::class, 'store'])->middleware('throttle:10,1')->name('pay.store');
 Route::get('/bayar/cek/{code}', [PayController::class, 'show'])->name('pay.show');
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/warga/{token}', [PortalController::class, 'show'])->name('portal.show');
+    Route::post('/warga/{token}/surat', [PortalController::class, 'storeLetter'])->middleware('throttle:10,1')->name('portal.letters.store');
+    Route::get('/warga/{token}/surat/{letter}', [PortalController::class, 'letter'])->name('portal.letters.show');
+    Route::get('/surat/cek/{code}', [LetterController::class, 'verify'])->name('letters.verify');
+});
 
 Route::middleware('guest')->group(function () {
     Route::get('/masuk', [AuthController::class, 'create'])->name('login');
@@ -28,11 +36,17 @@ Route::post('/keluar', [AuthController::class, 'destroy'])->middleware('auth')->
 
 Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [Admin\PaymentController::class, 'create'])->name('home');
+    Route::get('/ringkasan', Admin\DashboardController::class)->name('dashboard');
+    Route::get('/tunggakan', [Admin\ArrearsController::class, 'index'])->name('arrears.index');
+    Route::get('/laporan', [Admin\ReportController::class, 'show'])->name('reports.show');
     Route::get('/pembayaran', [Admin\PaymentController::class, 'index'])->name('payments.index');
     Route::post('/pembayaran', [Admin\PaymentController::class, 'store'])->name('payments.store');
     Route::delete('/pembayaran/{payment}', [Admin\PaymentController::class, 'destroy'])->name('payments.destroy');
     Route::get('/buku-iuran', [Admin\PaymentController::class, 'ledger'])->name('payments.ledger');
 
+    Route::get('/konfirmasi/mutasi', [Admin\ReconciliationController::class, 'create'])->name('reconciliation.create');
+    Route::post('/konfirmasi/mutasi', [Admin\ReconciliationController::class, 'check'])->name('reconciliation.check');
+    Route::post('/konfirmasi/mutasi/terima', [Admin\ReconciliationController::class, 'approve'])->name('reconciliation.approve');
     Route::get('/konfirmasi', [Admin\PaymentSubmissionController::class, 'index'])->name('submissions.index');
     Route::get('/konfirmasi/{submission}/bukti', [Admin\PaymentSubmissionController::class, 'proof'])->name('submissions.proof');
     Route::post('/konfirmasi/{submission}/terima', [Admin\PaymentSubmissionController::class, 'approve'])->name('submissions.approve');
@@ -48,9 +62,16 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::post('/rumah/{household}/penghuni', [Admin\HouseholdMemberController::class, 'store'])->name('households.members.store');
     Route::put('/rumah/{household}/penghuni/{member}', [Admin\HouseholdMemberController::class, 'update'])->name('households.members.update');
     Route::delete('/rumah/{household}/penghuni/{member}', [Admin\HouseholdMemberController::class, 'destroy'])->name('households.members.destroy');
+    Route::post('/rumah/{household}/link-baru', [Admin\HouseholdController::class, 'resetPortal'])->name('households.portal-reset');
+    Route::get('/rumah/{household}/kk', [Admin\HouseholdMemberController::class, 'kkImage'])->name('households.kk');
     Route::post('/rumah/{household}/penghuni/sync', [Admin\HouseholdMemberController::class, 'sync'])->name('households.members.sync');
     Route::resource('jenis-iuran', Admin\DuesTypeController::class)->except('show')->parameters(['jenis-iuran' => 'duesType'])->names('dues-types');
     Route::resource('pengeluaran', Admin\ExpenseController::class)->except('show')->parameters(['pengeluaran' => 'expense'])->names('expenses');
+
+    Route::get('/surat', [Admin\LetterController::class, 'index'])->name('letters.index');
+    Route::post('/surat/{letter}/setujui', [Admin\LetterController::class, 'approve'])->name('letters.approve');
+    Route::post('/surat/{letter}/tolak', [Admin\LetterController::class, 'reject'])->name('letters.reject');
+    Route::get('/surat/{letter}/cetak', [Admin\LetterController::class, 'print'])->name('letters.print');
 
     Route::get('/pengaturan', [Admin\SettingController::class, 'edit'])->name('settings.edit');
     Route::put('/pengaturan', [Admin\SettingController::class, 'update'])->name('settings.update');

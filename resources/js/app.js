@@ -567,7 +567,7 @@ document.addEventListener('click', async (event) => {
     event.preventDefault();
     try {
         await navigator.clipboard.writeText(button.dataset.copy);
-        showToast({ message: 'Nomor rekening berhasil disalin! ✓', type: 'success' });
+        showToast({ message: button.dataset.copyMessage || 'Nomor rekening berhasil disalin! ✓', type: 'success' });
     } catch (_) {
         await showAlert({
             title: 'Salin Teks',
@@ -916,6 +916,13 @@ function setupAdminSpaNavigation() {
     }
 }
 
+async function setupQrCodes() {
+    const canvases = document.querySelectorAll('canvas[data-qr]');
+    if (!canvases.length) return;
+    const { renderQr } = await import('./qris');
+    canvases.forEach((canvas) => renderQr(canvas, canvas.dataset.qr));
+}
+
 async function initHouseholdMembers() {
     if (document.getElementById('ocr-review-container')) {
         const { setupHouseholdMembers } = await import('./household-members');
@@ -940,6 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupQrisPayment();
     setupAdminSpaNavigation();
     initHouseholdMembers();
+    setupQrCodes();
 });
 
 

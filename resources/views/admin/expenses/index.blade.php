@@ -27,7 +27,16 @@
                                 {{ $expense->spent_on->translatedFormat('d M Y') }}
                             </span>
                             <span>•</span>
+                            <span>{{ $expense->categoryLabel() }}</span>
+                            <span>•</span>
                             <span class="font-bold text-rose-600 text-sm tabular-nums">{{ rupiah($expense->amount) }}</span>
+                            @if ($expense->receipt_path)
+                                <span>•</span>
+                                <a href="{{ $expense->receiptUrl() }}" target="_blank" class="font-semibold text-daun hover:underline">Nota</a>
+                            @else
+                                <span>•</span>
+                                <span class="text-amber-700">Tanpa nota</span>
+                            @endif
                         </div>
                     </div>
                 </div>

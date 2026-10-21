@@ -55,6 +55,7 @@ class AdminTest extends TestCase
         $this->post('/admin/pembayaran', $payload + ['periods' => ['2026-01', '2026-02']])->assertSessionHas('status');
         $this->post('/admin/pembayaran', $payload + ['periods' => ['2026-02', '2026-03']])->assertSessionHas('status');
         $this->assertSame(3, Payment::count());
+        $this->assertSame(25000, Payment::where('period', '2026-03')->value('amount'));
 
         $this->post('/admin/pembayaran', ['amount' => 50000, 'periods' => ['2026-05', '2026-06']] + $payload);
         $this->assertSame([25000, 25000], Payment::whereIn('period', ['2026-05', '2026-06'])->pluck('amount')->all());

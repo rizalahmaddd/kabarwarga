@@ -116,6 +116,10 @@ class PaymentController extends Controller
 
     public function destroy(Payment $payment)
     {
+        if ($payment->isFromSubmission()) {
+            return back()->with('warning', "Catatan ini berasal dari bukti bayar online #{$payment->submission->code}. Batalkan konfirmasinya di menu Konfirmasi Bayar supaya status pengajuannya ikut kembali.");
+        }
+
         $label = "{$payment->duesType->name} rumah {$payment->household->number} ({$payment->periodLabel()})";
         $payment->delete();
 

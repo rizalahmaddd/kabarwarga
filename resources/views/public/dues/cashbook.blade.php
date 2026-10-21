@@ -202,6 +202,12 @@
                                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                                 </svg>
                                 {{ $expense->spent_on->translatedFormat('j F Y') }}
+                                <span aria-hidden="true">·</span>
+                                {{ $expense->categoryLabel() }}
+                                @if ($expense->receipt_path)
+                                    <span aria-hidden="true">·</span>
+                                    <a href="{{ $expense->receiptUrl() }}" target="_blank" rel="noopener" class="font-semibold text-daun hover:underline">Lihat nota</a>
+                                @endif
                             </p>
                         </div>
                     </div>

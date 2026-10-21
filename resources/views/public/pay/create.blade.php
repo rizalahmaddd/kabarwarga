@@ -92,8 +92,8 @@
                                                 <span class="size-7 rounded-full bg-slate-900 text-white text-sm font-bold flex items-center justify-center">2</span>
                                                 <legend id="langkah-2" class="font-bold text-base text-slate-900">Bulan yang dibayar</legend>
                                             </div>
-                                            <nav class="flex items-center gap-1 text-sm" aria-label="Pilih tahun">
-                                                @foreach (range(now()->year - 1, now()->year + 1) as $y)
+                                            <nav class="flex flex-wrap items-center gap-1 text-sm" aria-label="Pilih tahun">
+                                                @foreach ($years as $y)
                                                     <a href="{{ route('pay.create', ['rumah' => $household->id, 'jenis' => $type->id, 'tahun' => $y]) }}"
                                                        @if ($y === $year) aria-current="page" @endif
                                                        class="px-3 py-1.5 rounded-lg font-bold no-underline {{ $y === $year ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100' }}">{{ $y }}</a>

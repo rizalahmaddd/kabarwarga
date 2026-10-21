@@ -78,7 +78,9 @@ class PaymentSubmissionController extends Controller
             return back()->with('warning', "Pengajuan #{$submission->code} sudah diproses sebelumnya.");
         }
 
-        $review->reject($submission, $data['reject_reason'], $request->user());
+        if (! $review->reject($submission, $data['reject_reason'], $request->user())) {
+            return back()->with('warning', "Pengajuan #{$submission->code} sudah diproses sebelumnya.");
+        }
 
         return back()->with('status', "Pengajuan #{$submission->code} rumah {$submission->household->number} ditolak. Warga bisa mengirim ulang.");
     }
@@ -88,6 +90,7 @@ class PaymentSubmissionController extends Controller
         abort_unless($submission->status === PaymentSubmission::APPROVED, 404);
 
         $removed = $review->cancel($submission);
+        abort_if($removed === null, 404);
 
         return redirect()->route('admin.submissions.index')
             ->with('status', "Konfirmasi #{$submission->code} dibatalkan, {$removed} catatan lunas dihapus. Pengajuan kembali ke daftar menunggu.");
@@ -97,7 +100,9 @@ class PaymentSubmissionController extends Controller
     {
         abort_unless($submission->status === PaymentSubmission::REJECTED, 404);
 
-        $review->reopen($submission);
+        if ($refusal = $review->reopen($submission)) {
+            return back()->with('warning', $refusal);
+        }
 
         return redirect()->route('admin.submissions.index')->with('status', "Pengajuan #{$submission->code} dikembalikan ke daftar menunggu.");
     }

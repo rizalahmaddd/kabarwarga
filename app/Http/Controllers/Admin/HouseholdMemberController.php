@@ -21,6 +21,17 @@ class HouseholdMemberController extends Controller
         return view('admin.households.members.index', compact('household'));
     }
 
+    public function kkImage(Household $household)
+    {
+        foreach (['local', 'public'] as $disk) {
+            if ($household->kk_image_path && Storage::disk($disk)->exists($household->kk_image_path)) {
+                return Storage::disk($disk)->response($household->kk_image_path);
+            }
+        }
+
+        abort(404);
+    }
+
     public function store(HouseholdMemberRequest $request, Household $household): RedirectResponse
     {
         $data = $request->validated();
@@ -71,11 +82,8 @@ class HouseholdMemberController extends Controller
             }
 
             if ($request->hasFile('kk_image')) {
-                if ($household->kk_image_path) {
-                    Storage::disk('public')->delete($household->kk_image_path);
-                }
-                $path = $request->file('kk_image')->store('kk', 'public');
-                $household->kk_image_path = $path;
+                $household->deleteKkImage();
+                $household->kk_image_path = $request->file('kk_image')->store('kk', 'local');
             }
 
             $household->save();

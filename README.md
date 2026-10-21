@@ -5,7 +5,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![REST API](https://img.shields.io/badge/REST_API-OpenAPI_/_Scalar-0ea5e9?logo=openapiinitiative&logoColor=white)](#-rest-api-aplikasi-mobile)
 [![OCR](https://img.shields.io/badge/OCR-Kartu_Keluarga-8A2BE2)](https://github.com/naptha/tesseract.js)
-[![Tests](https://img.shields.io/badge/Tests-55_passed-success?logo=phpunit&logoColor=white)](#-pengujian-kode)
+[![Tests](https://img.shields.io/badge/Tests-70_passed-success?logo=phpunit&logoColor=white)](#-pengujian-kode)
 
 Papan informasi lingkungan dan buku iuran untuk RT/RW, dibangun dengan **Laravel 13 + Blade + Tailwind CSS v4** (tanpa Filament), dilengkapi REST API untuk aplikasi mobile.
 
@@ -22,6 +22,11 @@ Papan informasi lingkungan dan buku iuran untuk RT/RW, dibangun dengan **Laravel
 - 💬 **Integrasi WhatsApp Instan**: Kirim tanda terima resmi via WhatsApp setelah mencatat iuran, pengingat tagihan ramah bagi yang belum lunas, dan salin rekap kas bulanan 1-klik untuk grup WhatsApp RT.
 - 👨‍👩‍👧‍👦 **Pendataan Penghuni & OCR Kartu Keluarga**: Rekap anggota keluarga per rumah (NIK, relasi, status hunian pemilik/kontrak), serta fitur foto/unggah Kartu Keluarga dengan pembacaan teks otomatis (OCR).
 - 📊 **Transparansi Kas & Ekspor Data**: Buku kas umum transparan dengan saldo berjalan, serta ekspor file CSV (Excel-ready) untuk mutasi kas dan data penduduk.
+- 🏠 **Halaman Rumah (Portal Warga)**: Link pribadi per rumah untuk melihat tagihan, riwayat bayar, kuitansi, data KK, dan mengajukan surat. Link bisa diganti kapan saja oleh pengurus.
+- ✉️ **Surat Pengantar Online**: Warga mengajukan (domisili, SKCK, nikah, usaha, tidak mampu, umum), pengurus menyetujui, nomor surat dibuat otomatis, dan surat siap cetak dengan QR cek keaslian.
+- 📋 **Ringkasan & Tunggakan**: Dashboard pengurus (saldo, arus kas 6 bulan, progres iuran) dan daftar tunggakan per rumah dengan pengingat WhatsApp berisi rincian bulan.
+- 🔍 **Cocokkan Mutasi Rekening**: Tempel/unggah mutasi bank, sistem mencocokkan nominal + kode unik dengan bukti bayar yang menunggu, lalu konfirmasi sekaligus.
+- 🧮 **Laporan Kas (LPJ)**: Laporan bulanan/tahunan siap cetak berisi ringkasan saldo, pemasukan per iuran, pengeluaran per kategori, dan tanda tangan ketua & bendahara. Pengeluaran kini punya kategori dan foto nota.
 - 📱 **REST API & Dokumentasi Scalar**: Endpoint publik warga dan admin lengkap dengan spesifikasi OpenAPI interaktif di `/docs/api`.
 
 ---
@@ -33,10 +38,12 @@ composer install
 npm install
 cp .env.example .env && php artisan key:generate
 php artisan migrate --seed          # membuat admin dari ADMIN_* di .env
-php artisan storage:link            # dibutuhkan untuk foto postingan dan gambar QRIS
+php artisan storage:link            # dibutuhkan untuk foto postingan, gambar QRIS, dan nota pengeluaran
 npm run build                       # atau `npm run dev` saat mengedit view
 php artisan serve
 ```
+
+> Instalasi lama yang sudah pernah mengunggah foto KK: jalankan `php artisan kk:secure` sekali untuk memindahkan file KK dari disk publik ke penyimpanan privat.
 
 > Data demo yang realistis (nama karangan, khusus development) bersifat opsional:
 > ```sh
@@ -74,7 +81,7 @@ Dokumentasi interaktif (Scalar) tersedia di **`/docs/api`**, dirender dari spesi
 php artisan test
 ```
 
-Semua endpoint, aturan kas, pembayaran, kuitansi digital, OCR KK, serta ekspor CSV telah diuji dengan **55 Feature & Unit tests (100% pass)**.
+Semua endpoint, aturan kas, pembayaran, kuitansi digital, OCR KK, serta ekspor CSV telah diuji dengan **70 Feature & Unit tests (100% pass)**.
 
 ---
 

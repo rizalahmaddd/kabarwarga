@@ -17,9 +17,15 @@
 
     @php
         $pendingCount = \App\Models\PaymentSubmission::pending()->count();
+        $pendingLetters = \App\Models\Letter::pending()->count();
 
         $menuGroups = [
             'Keuangan & Iuran' => [
+                'admin.dashboard' => [
+                    'label' => 'Ringkasan',
+                    'pattern' => 'admin.dashboard',
+                    'icon' => 'dashboard',
+                ],
                 'admin.home' => [
                     'label' => 'Catat Bayar',
                     'pattern' => 'admin.home',
@@ -30,6 +36,16 @@
                     'pattern' => 'admin.submissions.*',
                     'icon' => 'check-badge',
                     'badge' => $pendingCount,
+                ],
+                'admin.reconciliation.create' => [
+                    'label' => 'Cocokkan Mutasi',
+                    'pattern' => 'admin.reconciliation.*',
+                    'icon' => 'scale',
+                ],
+                'admin.arrears.index' => [
+                    'label' => 'Tunggakan',
+                    'pattern' => 'admin.arrears.*',
+                    'icon' => 'alert',
                 ],
                 'admin.payments.ledger' => [
                     'label' => 'Buku Iuran',
@@ -46,6 +62,11 @@
                     'pattern' => 'admin.expenses.*',
                     'icon' => 'expense',
                 ],
+                'admin.reports.show' => [
+                    'label' => 'Laporan Kas',
+                    'pattern' => 'admin.reports.*',
+                    'icon' => 'report',
+                ],
             ],
             'Warga & Konten' => [
                 'admin.posts.index' => [
@@ -57,6 +78,12 @@
                     'label' => 'Rumah Warga',
                     'pattern' => 'admin.households.*',
                     'icon' => 'household',
+                ],
+                'admin.letters.index' => [
+                    'label' => 'Surat Pengantar',
+                    'pattern' => 'admin.letters.*',
+                    'icon' => 'letter',
+                    'badge' => $pendingLetters,
                 ],
             ],
             'Master & Pengaturan' => [
@@ -96,6 +123,11 @@
                 'bank' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
                 'users' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
                 'settings' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+                'dashboard' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',
+                'scale' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>',
+                'alert' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+                'report' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 18v-2"/><path d="M12 18v-5"/><path d="M16 18v-3"/></svg>',
+                'letter' => '<svg class="size-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
                 default => '',
             };
         };
@@ -444,6 +476,56 @@
             </div>
 
             <div class="grid grid-cols-2 gap-3 my-4">
+                <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-emerald-50 hover:border-daun/40 no-underline text-slate-800 transition-colors">
+                    <div class="size-10 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
+                        {!! $renderIcon('dashboard') !!}
+                    </div>
+                    <div class="min-w-0">
+                        <span class="block font-bold text-sm leading-snug">Ringkasan</span>
+                        <span class="block text-[11px] text-slate-500">Kas & tindak lanjut</span>
+                    </div>
+                </a>
+
+                <a href="{{ route('admin.arrears.index') }}" class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-emerald-50 hover:border-daun/40 no-underline text-slate-800 transition-colors">
+                    <div class="size-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                        {!! $renderIcon('alert') !!}
+                    </div>
+                    <div class="min-w-0">
+                        <span class="block font-bold text-sm leading-snug">Tunggakan</span>
+                        <span class="block text-[11px] text-slate-500">Siapa belum bayar</span>
+                    </div>
+                </a>
+
+                <a href="{{ route('admin.letters.index') }}" class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-emerald-50 hover:border-daun/40 no-underline text-slate-800 transition-colors">
+                    <div class="size-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                        {!! $renderIcon('letter') !!}
+                    </div>
+                    <div class="min-w-0">
+                        <span class="block font-bold text-sm leading-snug">Surat Pengantar{{ $pendingLetters ? " ({$pendingLetters})" : '' }}</span>
+                        <span class="block text-[11px] text-slate-500">Ajuan surat warga</span>
+                    </div>
+                </a>
+
+                <a href="{{ route('admin.reconciliation.create') }}" class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-emerald-50 hover:border-daun/40 no-underline text-slate-800 transition-colors">
+                    <div class="size-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                        {!! $renderIcon('scale') !!}
+                    </div>
+                    <div class="min-w-0">
+                        <span class="block font-bold text-sm leading-snug">Cocokkan Mutasi</span>
+                        <span class="block text-[11px] text-slate-500">Cek transfer masuk</span>
+                    </div>
+                </a>
+
+                <a href="{{ route('admin.reports.show') }}" class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-emerald-50 hover:border-daun/40 no-underline text-slate-800 transition-colors">
+                    <div class="size-10 rounded-xl bg-emerald-100 text-daun-dark flex items-center justify-center shrink-0">
+                        {!! $renderIcon('report') !!}
+                    </div>
+                    <div class="min-w-0">
+                        <span class="block font-bold text-sm leading-snug">Laporan Kas</span>
+                        <span class="block text-[11px] text-slate-500">LPJ siap cetak</span>
+                    </div>
+                </a>
+
                 {{-- Rumah Warga --}}
                 <a href="{{ route('admin.households.index') }}" class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200/80 bg-slate-50 hover:bg-emerald-50 hover:border-daun/40 no-underline text-slate-800 transition-colors">
                     <div class="size-10 rounded-xl bg-emerald-100 text-daun-dark flex items-center justify-center shrink-0">
