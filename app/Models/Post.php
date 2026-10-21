@@ -75,15 +75,9 @@ class Post extends Model
 
     public function excerpt(int $limit = 160): string
     {
-        // Hapus tag script, style, dan seluruh tag HTML
-        $clean = preg_replace('/<(script|style)\b[^>]*>(.*?)<\/\1>/is', '', $this->body);
-        $clean = strip_tags($clean);
-        // Hapus entitas HTML jika ada
-        $clean = html_entity_decode($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $clean = strip_tags($clean);
-        // Bersihkan tanda markdown di awal baris seperti #, *, -, >
-        $clean = preg_replace('/^[#*>-]\s+/m', '', $clean);
-        $clean = trim(preg_replace('/\s+/', ' ', $clean));
+        $html = Str::markdown($this->body, ['html_input' => 'strip', 'allow_unsafe_links' => false]);
+        $clean = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $clean = trim(preg_replace('/\s+/', ' ', strip_tags($clean)));
 
         return Str::limit($clean, $limit);
     }

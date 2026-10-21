@@ -6,6 +6,8 @@ use App\Models\BankAccount;
 use App\Models\DuesType;
 use App\Models\Expense;
 use App\Models\Household;
+use App\Models\HouseholdMember;
+use App\Models\Letter;
 use App\Models\Payment;
 use App\Models\PaymentSubmission;
 use App\Models\Post;
@@ -13,6 +15,7 @@ use App\Models\Setting;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -62,6 +65,13 @@ class DemoSeeder extends Seeder
     ];
 
     private const INACTIVE = ['C-11', 'C-12'];
+
+    private const FEMALE_HEADS = ['A-3', 'B-6', 'B-10', 'C-6'];
+
+    private const RELIGIONS = ['A-6' => 'Kristen', 'A-11' => 'Kristen', 'B-12' => 'Katolik', 'C-9' => 'Katolik'];
+
+    // Left without KK data so the portal's "belum didata" state shows up too.
+    private const NO_KK = ['A-10', 'C-3', 'C-10'];
 
     private const PHONE_PREFIXES = ['0812', '0813', '0821', '0822', '0852', '0857', '0878', '0895', '0838', '0819'];
 
@@ -130,6 +140,9 @@ class DemoSeeder extends Seeder
         $this->seedPendingSubmissions($households, $security, $guardPost, $banks);
         $this->seedExpenses($start, $augustYear);
         $this->seedPosts($households, $augustYear, $guardPost);
+        $this->seedMembers($households);
+        $this->seedLetters($households);
+        $this->writeStatement($households);
     }
 
     private function seedSettings(): void
@@ -139,6 +152,9 @@ class DemoSeeder extends Seeder
             'site_tagline' => 'RT 05 / RW 11 Perumahan Griya Tlogomas Asri',
             'address' => 'Jl. Flamboyan Raya, Kel. Tlogomas, Kec. Lowokwaru, Kota Malang 65144',
             'treasurer_contact' => 'Ibu Sri Wahyuni (081334567812)',
+            'chairman_name' => 'Drs. Suryanto',
+            'treasurer_name' => 'Sri Wahyuni',
+            'letter_code' => 'RT.05/RW.11',
             'payment_info' => "Transfer ke rekening Kas RT di bawah, lalu unggah bukti lewat halaman ini.\nBisa juga bayar tunai ke Ibu Sri (B-4) atau saat penagihan keliling tiap tanggal 5.",
         ]);
     }
@@ -328,7 +344,7 @@ class DemoSeeder extends Seeder
     private function submission(Household $household, DuesType $type, array $periods, BankAccount $bank, string $status, CarbonImmutable $submittedAt, ?User $reviewer = null, ?string $rejectReason = null): PaymentSubmission
     {
         $code = $this->code();
-        $amount = $type->amount * count($periods);
+        $amount = $type->amount * count($periods) + $household->uniqueCode();
         $submission = new PaymentSubmission([
             'code' => $code,
             'household_id' => $household->id,
@@ -336,6 +352,7 @@ class DemoSeeder extends Seeder
             'periods' => $periods,
             'approved_periods' => $status === PaymentSubmission::APPROVED ? $periods : null,
             'unit_amount' => $type->amount,
+            'unique_code' => $household->uniqueCode(),
             'bank_account_id' => $bank->id,
             'payer_name' => mt_rand(1, 100) <= 70 ? $household->head_name : null,
             'phone' => $household->phone,
@@ -400,21 +417,38 @@ class DemoSeeder extends Seeder
                 if ($spentOn->gt($this->today)) {
                     continue;
                 }
-                Expense::firstOrCreate(
-                    ['spent_on' => $spentOn->toDateString(), 'description' => $description],
-                    ['amount' => $amount, 'recorded_by' => $this->treasurer->id],
-                );
+                $this->expense($spentOn, $description, $amount);
             }
         }
 
         $mourning = $this->today->subDays(38);
+        $this->expense($mourning, 'Santunan duka keluarga Bpk. Agus Setiawan (B-3)', 500000);
+        $this->expense($mourning, 'Karangan bunga duka cita a.n. warga RT 05', 350000);
+    }
+
+    private function expense(CarbonImmutable $spentOn, string $description, int $amount): void
+    {
+        $category = match (true) {
+            (bool) preg_match('/listrik|fotokopi|rapat/i', $description) => 'operasional',
+            (bool) preg_match('/santunan|duka|parcel/i', $description) => 'sosial',
+            (bool) preg_match('/sampah|sapu|karbol|pangkas|abate/i', $description) => 'kebersihan',
+            (bool) preg_match('/satpam|ronda|kentongan/i', $description) => 'keamanan',
+            (bool) preg_match('/lampu|cat ulang|servis|polisi tidur/i', $description) => 'perbaikan',
+            (bool) preg_match('/HUT|tirakatan|lomba|17-an|sound/i', $description) => 'kegiatan',
+            default => 'lainnya',
+        };
+
+        // Honors are handed over in cash without a nota; recent purchases come with a photo of one.
+        $withReceipt = ! str_starts_with($description, 'Honor') && $spentOn->gte($this->today->subMonths(4)) && mt_rand(1, 100) <= 65;
+
         Expense::firstOrCreate(
-            ['spent_on' => $mourning->toDateString(), 'description' => 'Santunan duka keluarga Bpk. Agus Setiawan (B-3)'],
-            ['amount' => 500000, 'recorded_by' => $this->treasurer->id],
-        );
-        Expense::firstOrCreate(
-            ['spent_on' => $mourning->toDateString(), 'description' => 'Karangan bunga duka cita a.n. warga RT 05'],
-            ['amount' => 350000, 'recorded_by' => $this->treasurer->id],
+            ['spent_on' => $spentOn->toDateString(), 'description' => $description],
+            [
+                'category' => $category,
+                'amount' => $amount,
+                'receipt_path' => $withReceipt ? $this->receiptImage($spentOn, $description, $amount) : null,
+                'recorded_by' => $this->treasurer->id,
+            ],
         );
     }
 
@@ -446,6 +480,7 @@ class DemoSeeder extends Seeder
             [
                 'category' => 'pengumuman',
                 'title' => 'Jadwal Ronda Malam '.$rondaMonth->translatedFormat('F Y'),
+                'image' => 'ronda-malam.jpg',
                 'is_pinned' => true,
                 'published_at' => $this->today->subDays(3)->setTime(19, 5),
                 'body' => "Berikut jadwal ronda untuk bulan {$rondaMonth->translatedFormat('F')}. Ronda mulai pukul **22.00 sampai 03.00**, kumpul di pos ronda Blok B.\n\n{$schedule}\n\nYang berhalangan mohon tukar jadwal sendiri dengan warga lain lalu kabari Pak RT. Yang tidak hadir tanpa kabar dikenakan denda Rp 20.000 masuk Kas RT, sesuai kesepakatan rapat.\n\nTerima kasih, semoga lingkungan kita tetap aman.",
@@ -453,6 +488,7 @@ class DemoSeeder extends Seeder
             [
                 'category' => 'iuran',
                 'title' => 'Iuran Renovasi Pos Ronda Sudah Dibuka',
+                'image' => 'renovasi-pos-ronda.jpg',
                 'is_popup' => true,
                 'published_at' => $this->today->subDays(10)->setTime(8, 30),
                 'body' => "Sesuai hasil rapat warga bulan lalu, pos ronda akan direnovasi karena atapnya bocor dan lantainya retak.\n\n**Sumbangan: {$rupiah($guardPost->amount)} per rumah**, paling lambat {$guardPost->due_on->translatedFormat('j F Y')}.\n\nRencana pekerjaan:\n\n- Ganti atap seng dengan spandek\n- Pasang keramik lantai\n- Cat ulang dan perbaiki bangku\n\nSampai hari ini sudah {$guardPaid} rumah yang menyumbang. Pembayaran bisa transfer lalu unggah bukti di menu **Bayar Iuran**, atau tunai ke Ibu Sri (B-4).",
@@ -460,6 +496,7 @@ class DemoSeeder extends Seeder
             [
                 'category' => 'kegiatan',
                 'title' => 'Kerja Bakti Bersih Saluran Air Menjelang Musim Hujan',
+                'image' => 'kerja-bakti.jpg',
                 'event_starts_at' => $nextSunday->setTime(7, 0),
                 'event_location' => 'Kumpul di pos ronda Blok B',
                 'published_at' => $this->today->subDays(2)->setTime(16, 20),
@@ -468,6 +505,7 @@ class DemoSeeder extends Seeder
             [
                 'category' => 'kegiatan',
                 'title' => 'Posyandu Balita dan Lansia '.$nextSunday->addDays(6)->translatedFormat('F'),
+                'image' => 'posyandu.jpg',
                 'event_starts_at' => $nextSunday->addDays(6)->setTime(8, 0),
                 'event_location' => 'Teras rumah Ibu Ketua RT (B-7)',
                 'published_at' => $this->today->subDay()->setTime(10, 0),
@@ -476,6 +514,7 @@ class DemoSeeder extends Seeder
             [
                 'category' => 'kegiatan',
                 'title' => 'Rapat Warga: Pembahasan Pemasangan CCTV',
+                'image' => 'rapat-warga.jpg',
                 'event_starts_at' => $nextSunday->addDays(13)->setTime(19, 30),
                 'event_location' => 'Balai warga RW 11',
                 'published_at' => $this->today->setTime(7, 15),
@@ -496,12 +535,14 @@ class DemoSeeder extends Seeder
             [
                 'category' => 'berita',
                 'title' => "Keseruan Lomba HUT RI ke-{$hut} di RT 05",
+                'image' => 'lomba-hut-ri.jpg',
                 'published_at' => CarbonImmutable::create($augustYear, 8, 19, 9, 0),
                 'body' => "Terima kasih untuk seluruh warga yang sudah meramaikan lomba 17-an kemarin. Suasananya guyub sekali.\n\nPara juara:\n\n- **Balap karung anak:** Naufal (A-5)\n- **Makan kerupuk:** Keisha (C-7)\n- **Tarik tambang bapak-bapak:** tim Blok B\n- **Estafet kelereng ibu-ibu:** tim Blok A\n- **Panjat pinang:** tim gabungan pemuda\n\nHadiah sudah dibagikan saat malam puncak. Laporan penggunaan dana HUT RI bisa dicek di Buku Kas.",
             ],
             [
                 'category' => 'kegiatan',
                 'title' => 'Malam Tirakatan 16 Agustus',
+                'image' => 'tirakatan.jpg',
                 'event_starts_at' => CarbonImmutable::create($augustYear, 8, 16, 19, 30),
                 'event_location' => 'Jalan depan Blok B (ditutup sementara)',
                 'published_at' => CarbonImmutable::create($augustYear, 8, 10, 18, 0),
@@ -510,12 +551,14 @@ class DemoSeeder extends Seeder
             [
                 'category' => 'pengumuman',
                 'title' => 'Jadwal Angkut Sampah Berubah Jadi Senin, Rabu, Sabtu',
+                'image' => 'angkut-sampah.jpg',
                 'published_at' => $this->today->subDays(21)->setTime(12, 10),
                 'body' => "Mulai minggu depan, Pak Mulyono mengangkut sampah setiap **Senin, Rabu, dan Sabtu** mulai pukul 07.00 (sebelumnya Selasa, Kamis, Sabtu), menyesuaikan jadwal TPS Tlogomas.\n\nMohon sampah dikeluarkan pagi hari, jangan malam, supaya tidak dibongkar kucing. Sampah dipilah organik dan anorganik kalau bisa.",
             ],
             [
                 'category' => 'berita',
                 'title' => 'Fogging DBD Sudah Dilakukan di Seluruh Blok',
+                'image' => 'fogging-dbd.jpg',
                 'published_at' => $this->today->subDays(55)->setTime(15, 0),
                 'body' => "Petugas Puskesmas Dinoyo sudah melakukan fogging di Blok A, B, dan C setelah ada satu warga yang dirawat karena DBD.\n\nFogging hanya membunuh nyamuk dewasa, jadi tetap lakukan **3M Plus**: menguras, menutup, dan mendaur ulang barang bekas, ditambah taburkan abate. Abate bisa diminta gratis ke Ibu Sri (B-4).",
             ],
@@ -528,12 +571,312 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($posts as $post) {
-            Post::firstOrCreate(['slug' => Str::slug($post['title'])], $post + [
+            $image = Arr::pull($post, 'image');
+            $model = Post::firstOrCreate(['slug' => Str::slug($post['title'])], $post + [
                 'is_pinned' => false,
                 'is_popup' => false,
                 'author_id' => $post['category'] === 'iuran' ? $this->treasurer->id : $this->admin->id,
             ]);
+
+            if ($image && ! $model->image_path) {
+                $path = 'kabar/demo-'.$image;
+                Storage::disk('public')->put($path, file_get_contents(database_path('seeders/images/kabar/'.$image)));
+                $model->update(['image_path' => $path]);
+            }
         }
+    }
+
+    /**
+     * @param  array<string, array{model: Household, lag: int, transfer: bool}>  $households
+     */
+    private function seedMembers(array $households): void
+    {
+        $wives = ['Siti Rahmawati', 'Dewi Lestari', 'Endah Purwaningsih', 'Rina Marlina', 'Yuli Astuti', 'Nurul Hidayah', 'Retno Wulandari', 'Fitri Handayani', 'Ani Susilowati', 'Lilik Suryani', 'Wulan Sari', 'Indah Permatasari', 'Tutik Rahayu', 'Erna Kusumawati', 'Heni Sulistyowati'];
+        $christianWives = ['Maria Christina', 'Yuliana Kristanti', 'Theresia Lestari', 'Agnes Kurniasari'];
+        $sons = ['Raka Aditya', 'Fikri Hidayat', 'Bagas Saputra', 'Dimas Ardiansyah', 'Galih Prakoso', 'Rafi Alfarizi', 'Yoga Pratama', 'Arya Wicaksana', 'Daffa Ramadhan', 'Farel Kurniawan'];
+        $daughters = ['Nadia Putri', 'Salsabila Azzahra', 'Alya Rahma', 'Citra Anggraini', 'Zahra Nur Aini', 'Tiara Kusuma', 'Aurel Safitri', 'Bunga Lestari', 'Nayla Putri', 'Anisa Fitriani'];
+        // Kids named in the HUT RI post.
+        $knownKids = ['A-5' => ['Naufal Pratama', 'L'], 'C-7' => ['Keisha Aulia', 'P']];
+
+        foreach ($households as $number => $info) {
+            $household = $info['model'];
+            if (! $household->is_active || in_array($number, self::NO_KK, true)) {
+                continue;
+            }
+
+            $religion = self::RELIGIONS[$number] ?? 'Islam';
+            $headBorn = $this->today->subYears($number === 'A-3' ? mt_rand(68, 74) : mt_rand(34, 64))->subDays(mt_rand(0, 364));
+            $headMarital = match ($number) {
+                'A-3', 'B-6' => 'Cerai Mati',
+                'C-6' => 'Cerai Hidup',
+                'B-10' => 'Belum Kawin',
+                default => 'Kawin',
+            };
+
+            $members = [[
+                'name' => preg_replace('/^(Hj\.|Ir\.|Drs\.|dr\.)\s*/', '', $household->head_name),
+                'gender' => in_array($number, self::FEMALE_HEADS, true) ? 'P' : 'L',
+                'birth_date' => $headBorn,
+                'family_relation' => 'Kepala Keluarga',
+                'marital_status' => $headMarital,
+                'education' => match ($number) {
+                    'A-9', 'B-7', 'B-10' => 'S1',
+                    default => collect(['SMA / Sederajat', 'SMA / Sederajat', 'D3', 'S1', 'S1', 'SMP / Sederajat'])->get(mt_rand(0, 5)),
+                },
+                'job' => match (true) {
+                    $number === 'B-10' => 'Dokter',
+                    $number === 'A-3' || $headBorn->lte($this->today->subYears(58)) => 'Pensiunan',
+                    $number === 'B-6' => 'Pedagang',
+                    default => collect(['Karyawan Swasta', 'Karyawan Swasta', 'Wiraswasta', 'PNS', 'Guru', 'Pedagang', 'Sopir'])->get(mt_rand(0, 6)),
+                },
+                'phone' => $household->phone,
+            ]];
+
+            if ($headMarital === 'Kawin') {
+                $members[] = [
+                    'name' => $number === 'B-4' ? 'Sri Wahyuni' : ($religion === 'Islam' ? $wives : $christianWives)[mt_rand(0, $religion === 'Islam' ? count($wives) - 1 : count($christianWives) - 1)],
+                    'gender' => 'P',
+                    'birth_date' => $headBorn->addYears(mt_rand(0, 6))->addDays(mt_rand(0, 300)),
+                    'family_relation' => 'Istri',
+                    'marital_status' => 'Kawin',
+                    'education' => collect(['SMA / Sederajat', 'D3', 'S1'])->get(mt_rand(0, 2)),
+                    'job' => collect(['Mengurus Rumah Tangga', 'Mengurus Rumah Tangga', 'Mengurus Rumah Tangga', 'Karyawan Swasta', 'Guru', 'Wiraswasta', 'Perawat'])->get(mt_rand(0, 6)),
+                    'phone' => mt_rand(1, 100) <= 60 ? $this->phone() : null,
+                ];
+            }
+
+            if ($number === 'A-3') {
+                $daughterBorn = $headBorn->addYears(27);
+                array_push($members,
+                    ['name' => 'Ratna Dewi', 'gender' => 'P', 'birth_date' => $daughterBorn, 'family_relation' => 'Anak', 'marital_status' => 'Kawin', 'education' => 'S1', 'job' => 'Guru'],
+                    ['name' => 'Rudi Santoso', 'gender' => 'L', 'birth_date' => $daughterBorn->subYears(3), 'family_relation' => 'Menantu', 'marital_status' => 'Kawin', 'education' => 'S1', 'job' => 'Karyawan Swasta', 'phone' => $this->phone()],
+                    ['name' => 'Rizki Ananda', 'gender' => 'L', 'birth_date' => $daughterBorn->addYears(29), 'family_relation' => 'Cucu', 'marital_status' => 'Belum Kawin'],
+                );
+            } elseif ($number !== 'B-10') {
+                $kids = mt_rand(0, 3);
+                $kidBorn = $headBorn->addYears(mt_rand(25, 33));
+                for ($i = 0; $i < max($kids, isset($knownKids[$number]) ? 1 : 0); $i++) {
+                    if ($kidBorn->gt($this->today->subYear())) {
+                        break;
+                    }
+                    [$name, $gender] = $i === 0 && isset($knownKids[$number])
+                        ? $knownKids[$number]
+                        : (mt_rand(0, 1) ? [$sons[mt_rand(0, count($sons) - 1)], 'L'] : [$daughters[mt_rand(0, count($daughters) - 1)], 'P']);
+                    $members[] = ['name' => $name, 'gender' => $gender, 'birth_date' => $kidBorn, 'family_relation' => 'Anak', 'marital_status' => 'Belum Kawin'];
+                    $kidBorn = $kidBorn->addYears(mt_rand(2, 5))->addDays(mt_rand(0, 300));
+                }
+            }
+
+            foreach ($members as $seq => $member) {
+                $age = $member['birth_date']->diffInYears($this->today);
+                $household->members()->create($member + [
+                    'nik' => $this->nik($member['birth_date'], $member['gender'], $seq + 1),
+                    'birth_place' => collect(['Malang', 'Malang', 'Malang', 'Surabaya', 'Blitar', 'Kediri', 'Pasuruan', 'Jember', 'Batu', 'Tulungagung'])->get(mt_rand(0, 9)),
+                    'religion' => $religion,
+                    'education' => match (true) {
+                        isset($member['education']) => $member['education'],
+                        $age < 6 => 'Belum Sekolah',
+                        $age < 13 => 'SD / Sederajat',
+                        $age < 16 => 'SMP / Sederajat',
+                        $age < 22 => 'SMA / Sederajat',
+                        default => 'S1',
+                    },
+                    'job' => $member['job'] ?? match (true) {
+                        $age < 5 => 'Belum / Tidak Bekerja',
+                        $age < 23 => 'Pelajar / Mahasiswa',
+                        default => 'Karyawan Swasta',
+                    },
+                ]);
+            }
+
+            $household->update(['kk_number' => '357305'.str_pad((string) mt_rand(0, 9999999999), 10, '0', STR_PAD_LEFT)]);
+            if (mt_rand(1, 100) <= 50) {
+                $household->update(['kk_image_path' => $this->kkImage($household->load('members'))]);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array{model: Household, lag: int, transfer: bool}>  $households
+     */
+    private function seedLetters(array $households): void
+    {
+        $withMembers = collect($households)->pluck('model')->filter(fn (Household $h) => $h->members()->exists())->values();
+        if ($withMembers->isEmpty()) {
+            return;
+        }
+
+        $requests = [
+            [64, 'domisili', 'Membuka rekening bank', Letter::APPROVED],
+            [41, 'skck', 'Melamar pekerjaan', Letter::APPROVED],
+            [23, 'usaha', 'Pengajuan Kredit Usaha Rakyat (KUR) di BRI', Letter::APPROVED],
+            [12, 'domisili', 'Mengurus pindah sekolah anak', Letter::APPROVED],
+            [9, 'nikah', 'Persyaratan nikah di KUA Lowokwaru', Letter::REJECTED, 'Status perkawinan di data KK masih tertulis Kawin. Mohon kirim foto KK terbaru ke Ibu Sri (B-4), setelah diperbaiki silakan ajukan ulang.'],
+            [3, 'skck', 'Melamar kerja di BUMN', Letter::PENDING],
+            [1, 'domisili', 'Mengurus BPJS Kesehatan', Letter::PENDING],
+            [0, 'tidak_mampu', 'Keringanan biaya sekolah anak', Letter::PENDING],
+        ];
+        $romanMonths = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+        $sequences = [];
+
+        foreach ($requests as $i => [$daysAgo, $type, $purpose, $status]) {
+            $household = $withMembers[($i * 5) % $withMembers->count()];
+            $adults = $household->members()->get()->filter(fn (HouseholdMember $m) => $m->birth_date?->lte($this->today->subYears(17)));
+            $member = in_array($type, ['skck', 'nikah'], true) && $adults->count() > 1 ? $adults->last() : $adults->first();
+            $submittedAt = $this->today->subDays($daysAgo)->setTime(mt_rand(6, 21), mt_rand(0, 59))->min(now());
+
+            $letter = new Letter([
+                'code' => Letter::newCode(),
+                'household_id' => $household->id,
+                'household_member_id' => $member->id,
+                'type' => $type,
+                'purpose' => $purpose,
+                'person' => Letter::personFrom($member),
+                'phone' => $member->phone ?? $household->phone,
+                'status' => $status,
+                'reject_reason' => $requests[$i][4] ?? null,
+            ]);
+
+            if ($status !== Letter::PENDING) {
+                $reviewedAt = $submittedAt->addHours(mt_rand(3, 30))->min(now());
+                $letter->forceFill(['reviewed_by' => $this->admin->id, 'reviewed_at' => $reviewedAt]);
+
+                if ($status === Letter::APPROVED) {
+                    $sequence = $sequences[$reviewedAt->year] = ($sequences[$reviewedAt->year] ?? 0) + 1;
+                    $letter->forceFill([
+                        'sequence' => $sequence,
+                        'number' => sprintf('%03d/%s/%s/%d', $sequence, 'RT.05/RW.11', $romanMonths[$reviewedAt->month - 1], $reviewedAt->year),
+                        'issued_on' => $reviewedAt->toDateString(),
+                    ]);
+                }
+            }
+
+            $letter->created_at = $submittedAt;
+            $letter->updated_at = $letter->reviewed_at ?? $submittedAt;
+            $letter->save();
+        }
+
+        $this->command?->info('Contoh link halaman rumah warga: '.$withMembers->first()->portalUrl());
+    }
+
+    /**
+     * Sample bank statement for trying the reconciliation page: most pending transfers are on it, one is not,
+     * and one QRIS payment has no confirmation yet.
+     *
+     * @param  array<string, array{model: Household, lag: int, transfer: bool}>  $households
+     */
+    private function writeStatement(array $households): void
+    {
+        $pending = PaymentSubmission::pending()->with('household')->oldest()->get();
+        $rupiah = fn (int $n) => number_format($n, 2, '.', ',');
+        $lines = [];
+
+        foreach ($pending->slice(0, max(1, $pending->count() - 1)) as $submission) {
+            $payer = Str::upper(Str::ascii($submission->payer_name ?? $submission->household->head_name));
+            $lines[] = [$submission->created_at, "TRSF E-BANKING CR DARI {$payer}", $rupiah($submission->transferTotal()).' CR'];
+        }
+
+        $busy = $pending->pluck('household_id')->all();
+        $qris = collect($households)->pluck('model')->first(fn (Household $h) => $h->is_active && ! in_array($h->id, $busy, true));
+        if ($qris) {
+            $lines[] = [$this->today->subDay()->setTime(19, 42), 'QRIS CR PEMBAYARAN QR NMID ID1023289412881', $rupiah(75000 + $qris->uniqueCode()).' CR'];
+        }
+        $lines[] = [$this->today->subDays(2)->setTime(9, 15), 'TRSF E-BANKING DB PEMBELIAN TOKEN PLN', $rupiah(150000).' DB'];
+        $lines[] = [$this->today->subDays(3)->setTime(23, 59), 'BUNGA TABUNGAN', $rupiah(1250).' CR'];
+
+        $text = collect($lines)
+            ->sortBy(fn (array $line) => $line[0])
+            ->map(fn (array $line) => sprintf('%s  %-48s %18s', $line[0]->format('d/m/Y'), $line[1], $line[2]))
+            ->implode("\n");
+
+        Storage::disk('local')->put('demo/mutasi-rekening.txt', $text."\n");
+        $this->command?->info('Contoh mutasi rekening untuk menu Cocokkan Mutasi: '.Storage::disk('local')->path('demo/mutasi-rekening.txt'));
+    }
+
+    private function nik(CarbonImmutable $born, string $gender, int $seq): string
+    {
+        return '357305'.str_pad((string) ($born->day + ($gender === 'P' ? 40 : 0)), 2, '0', STR_PAD_LEFT).$born->format('my').str_pad((string) (mt_rand(1, 9989) + $seq), 4, '0', STR_PAD_LEFT);
+    }
+
+    private function kkImage(Household $household): ?string
+    {
+        if (! function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+
+        $img = imagecreatetruecolor(900, 260 + $household->members->count() * 28);
+        $paper = imagecolorallocate($img, 246, 243, 232);
+        $dark = imagecolorallocate($img, 30, 41, 59);
+        $muted = imagecolorallocate($img, 100, 116, 139);
+        $line = imagecolorallocate($img, 203, 213, 225);
+        $red = imagecolorallocate($img, 220, 38, 38);
+
+        imagefill($img, 0, 0, $paper);
+        imagestring($img, 5, 330, 20, 'KARTU KELUARGA', $dark);
+        imagestring($img, 4, 320, 42, 'No. '.$household->kk_number, $dark);
+        imagestring($img, 3, 30, 80, 'Nama Kepala Keluarga : '.Str::ascii($household->members->first()->name), $dark);
+        imagestring($img, 3, 30, 98, 'Alamat               : Perum Griya Tlogomas Asri '.$household->number.' RT 005 / RW 011', $dark);
+        imagestring($img, 3, 30, 116, 'Kelurahan            : Tlogomas, Kec. Lowokwaru, Kota Malang', $dark);
+
+        $y = 150;
+        imageline($img, 30, $y - 6, 870, $y - 6, $line);
+        foreach (['No' => 30, 'Nama Lengkap' => 60, 'NIK' => 290, 'L/P' => 450, 'Tgl Lahir' => 490, 'Hubungan' => 590, 'Pekerjaan' => 700] as $label => $x) {
+            imagestring($img, 3, $x, $y, $label, $muted);
+        }
+        foreach ($household->members as $i => $member) {
+            $y += 28;
+            imageline($img, 30, $y - 6, 870, $y - 6, $line);
+            foreach ([30 => $i + 1, 60 => Str::limit(Str::ascii($member->name), 30, ''), 290 => $member->nik, 450 => $member->gender, 490 => $member->birth_date->format('d-m-Y'), 590 => $member->family_relation, 700 => Str::limit($member->job, 22, '')] as $x => $value) {
+                imagestring($img, 3, $x, $y, (string) $value, $dark);
+            }
+        }
+        imagestring($img, 5, 330, $y + 50, 'CONTOH DATA DEMO', $red);
+
+        $path = "kk/demo-{$household->number}.png";
+        ob_start();
+        imagepng($img);
+        Storage::disk('local')->put($path, ob_get_clean());
+
+        return $path;
+    }
+
+    private function receiptImage(CarbonImmutable $spentOn, string $description, int $amount): ?string
+    {
+        if (! function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+
+        $img = imagecreatetruecolor(320, 420);
+        $paper = imagecolorallocate($img, 255, 253, 245);
+        $ink = imagecolorallocate($img, 30, 58, 138);
+        $muted = imagecolorallocate($img, 100, 116, 139);
+        $line = imagecolorallocate($img, 203, 213, 225);
+
+        imagefill($img, 0, 0, $paper);
+        $store = collect(['TB SUMBER REJEKI', 'TOKO MAKMUR JAYA', 'UD SINAR ABADI', 'TOKO LISTRIK TERANG', 'WARUNG BU TINI', 'FOTOCOPY BAROKAH'])->get(mt_rand(0, 5));
+        imagestring($img, 5, (int) (160 - strlen($store) * 4.5), 20, $store, $ink);
+        imagestring($img, 2, 92, 42, 'Jl. MT Haryono, Malang', $muted);
+        imagestring($img, 4, 20, 76, 'NOTA', $ink);
+        imagestring($img, 3, 180, 78, 'Tgl: '.$spentOn->format('d-m-Y'), $ink);
+        imageline($img, 20, 104, 300, 104, $line);
+
+        $y = 116;
+        foreach (str_split(Str::ascii($description), 38) as $chunk) {
+            imagestring($img, 3, 20, $y, $chunk, $ink);
+            $y += 18;
+        }
+        imageline($img, 20, 320, 300, 320, $line);
+        $total = 'Rp '.number_format($amount, 0, ',', '.');
+        imagestring($img, 4, 20, 332, 'TOTAL', $ink);
+        imagestring($img, 4, 300 - strlen($total) * 8, 332, $total, $ink);
+        imagestring($img, 2, 104, 388, 'Terima kasih', $muted);
+
+        $path = 'nota/demo-'.substr(md5($spentOn->toDateString().$description), 0, 12).'.png';
+        ob_start();
+        imagepng($img);
+        Storage::disk('public')->put($path, ob_get_clean());
+
+        return $path;
     }
 
     private function phone(): string

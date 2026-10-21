@@ -172,39 +172,48 @@
             @foreach ($pinned as $post)
                 <article class="bg-white rounded-3xl border border-amber-200/80 shadow-xs p-5 sm:p-6 transition hover:shadow-md relative overflow-hidden">
                     <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 to-terakota"></div>
-                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2.5">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
-                            <svg class="size-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                            Disematkan
-                        </span>
-                        <x-stamp :category="$post->category" />
-                        <span>•</span>
-                        <time datetime="{{ $post->published_at->toIso8601String() }}">{{ $post->published_at->translatedFormat('j F Y') }}</time>
-                    </div>
+                    <div class="flex flex-col sm:flex-row gap-5">
+                        @if ($post->imageUrl())
+                            <a href="{{ route('posts.show', $post) }}" tabindex="-1" aria-hidden="true" class="block shrink-0 sm:order-last w-full sm:w-60 aspect-[16/9] sm:aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100">
+                                <img src="{{ $post->imageUrl() }}" alt="" class="size-full object-cover">
+                            </a>
+                        @endif
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2.5">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                    <svg class="size-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                                    Disematkan
+                                </span>
+                                <x-stamp :category="$post->category" />
+                                <span>•</span>
+                                <time datetime="{{ $post->published_at->toIso8601String() }}">{{ $post->published_at->translatedFormat('j F Y') }}</time>
+                            </div>
 
-                    <h3 class="font-bold text-lg sm:text-xl text-slate-900 leading-snug break-words">
-                        <a href="{{ route('posts.show', $post) }}" class="text-slate-900 hover:text-daun transition no-underline">
-                            {{ $post->title }}
-                        </a>
-                    </h3>
+                            <h3 class="font-bold text-lg sm:text-xl text-slate-900 leading-snug break-words">
+                                <a href="{{ route('posts.show', $post) }}" class="text-slate-900 hover:text-daun transition no-underline">
+                                    {{ $post->title }}
+                                </a>
+                            </h3>
 
-                    @if ($post->category === 'kegiatan' && $post->event_starts_at)
-                        <div class="mt-2.5 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 text-xs font-semibold border border-emerald-100">
-                            <svg class="size-3.5 text-daun shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"/>
-                                <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                            <span>{{ $post->event_starts_at->translatedFormat('l, j F Y · H.i') }} WIB @if ($post->event_location) · {{ $post->event_location }} @endif</span>
+                            @if ($post->category === 'kegiatan' && $post->event_starts_at)
+                                <div class="mt-2.5 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 text-xs font-semibold border border-emerald-100">
+                                    <svg class="size-3.5 text-daun shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <polyline points="12 6 12 12 16 14"/>
+                                    </svg>
+                                    <span>{{ $post->event_starts_at->translatedFormat('l, j F Y · H.i') }} WIB @if ($post->event_location) · {{ $post->event_location }} @endif</span>
+                                </div>
+                            @endif
+
+                            <p class="mt-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed break-words">{{ $post->excerpt(260) }}</p>
+
+                            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                <a href="{{ route('posts.show', $post) }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-daun hover:text-daun-dark transition">
+                                    <span>Baca selengkapnya</span>
+                                    <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </a>
+                            </div>
                         </div>
-                    @endif
-
-                    <p class="mt-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed break-words">{{ $post->excerpt(260) }}</p>
-
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <a href="{{ route('posts.show', $post) }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-daun hover:text-daun-dark transition">
-                            <span>Baca selengkapnya</span>
-                            <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                        </a>
                     </div>
                 </article>
             @endforeach

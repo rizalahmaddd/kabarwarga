@@ -75,6 +75,8 @@ class BankStatementMatcher
      */
     private function amountsIn(string $line): array
     {
+        // Full dates like 18/10/2026 would otherwise turn the year into an amount.
+        $line = preg_replace('/\b\d{1,4}[\/-]\d{1,2}[\/-]\d{2,4}\b/', ' ', $line);
         preg_match_all('/(?<![\d.,])(\d{1,3}(?:[.,]\d{3})+|\d{4,})([.,]\d{2})?(?![\d.,])/', $line, $found, PREG_SET_ORDER);
 
         return collect($found)

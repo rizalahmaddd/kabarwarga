@@ -930,8 +930,56 @@ async function initHouseholdMembers() {
     }
 }
 
+// Hash-synced tabs; controller redirects land on #surat so the hash must pick the tab
+function setupTabs() {
+    const root = document.querySelector('[data-tabs]');
+    if (!root) return;
+
+    const tabs = [...root.querySelectorAll('[data-tab]')];
+    const panels = [...root.querySelectorAll('[data-tab-panel]')];
+    const keys = tabs.map((t) => t.dataset.tab);
+
+    function select(key, { focus = false } = {}) {
+        tabs.forEach((tab) => {
+            const active = tab.dataset.tab === key;
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
+            if (active && focus) tab.focus();
+        });
+        panels.forEach((panel) => {
+            panel.hidden = panel.id !== key;
+        });
+    }
+
+    function fromHash() {
+        const key = location.hash.slice(1);
+        return keys.includes(key) ? key : keys[0];
+    }
+
+    tabs.forEach((tab, i) => {
+        tab.addEventListener('click', () => {
+            select(tab.dataset.tab);
+            history.replaceState(null, '', '#' + tab.dataset.tab);
+        });
+        tab.addEventListener('keydown', (e) => {
+            const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+            if (!step) return;
+            e.preventDefault();
+            const next = tabs[(i + step + tabs.length) % tabs.length];
+            select(next.dataset.tab, { focus: true });
+            history.replaceState(null, '', '#' + next.dataset.tab);
+        });
+    });
+
+    window.addEventListener('hashchange', () => select(fromHash()));
+
+    root.querySelector('[data-tablist-wrap]').hidden = false;
+    select(fromHash());
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+    setupTabs();
     setupPartialApprove();
     setupProofPreview();
     setupAdminDrawer();
